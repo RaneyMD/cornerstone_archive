@@ -2,7 +2,7 @@
 environment: development
 
 database:
-  host: cornerstonearchive.raneyworld.com
+  host: gator2111.hostgator.com
   user: raneywor_csa_dev
   password: ${DB_PASSWORD_DEV}
   database: raneywor_csa_dev_state
