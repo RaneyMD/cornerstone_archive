@@ -23,7 +23,7 @@ def test_container_id():
 def test_db_credentials():
     """Return test database credentials."""
     return {
-        'host': os.getenv('TEST_DB_HOST', 'cornerstonearchive.raneyworld.com'),
+        'host': os.getenv('TEST_DB_HOST', 'gator2111.hostgator.com'),
         'user': os.getenv('TEST_DB_USER', 'raneywor_csa_dev'),
         'password': os.getenv('TEST_DB_PASSWORD', 'test_password'),
         'database': os.getenv('TEST_DB_NAME', 'raneywor_csa_dev_state')
