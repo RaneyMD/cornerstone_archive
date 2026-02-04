@@ -2,7 +2,7 @@
 environment: production
 
 database:
-  host: cornerstonearchive.raneyworld.com
+  host: gator2111.hostgator.com
   user: raneywor_csa_app
   password: ${DB_PASSWORD}
   database: raneywor_csa_state
