@@ -3,6 +3,7 @@
 import json
 import os
 import pytest
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
@@ -308,3 +309,221 @@ class TestWatcherSignalHandling:
         watcher.handle_shutdown(15, None)
 
         assert watcher.running is False
+
+    def test_handle_shutdown_releases_lock(self, mock_config, mock_nas, mock_db, tmp_path):
+        """handle_shutdown() calls release_lock(), cleaning up the lock directory."""
+        mock_nas.get_state_path.return_value = tmp_path / "00_STATE"
+
+        watcher = Watcher(mock_config, mock_nas, mock_db, worker_id="LockTestWorker")
+        lock_dir = watcher.acquire_lock()
+        assert lock_dir is not None
+        assert lock_dir.exists()
+
+        # Simulate SIGTERM
+        watcher.handle_shutdown(15, None)
+
+        assert watcher.running is False
+        assert not lock_dir.exists()
+        assert watcher.lock_dir is None
+
+
+class TestWatcherLocking:
+    """Tests for watcher filesystem lock (acquire / release / owner)."""
+
+    @pytest.fixture
+    def mock_config(self):
+        return {
+            "environment": "development",
+            "database": {"host": "localhost", "user": "user", "password": "pass", "database": "db"},
+            "nas": {"root": "/tmp/nas"},
+            "logging": {"level": "INFO"},
+            "watcher": {"scan_interval_seconds": 5, "heartbeat_interval_seconds": 30},
+        }
+
+    @pytest.fixture
+    def mock_nas(self, tmp_path):
+        nas = MagicMock()
+        nas.get_state_path.return_value = tmp_path / "00_STATE"
+        nas.get_logs_path.return_value = tmp_path / "05_LOGS"
+        return nas
+
+    @pytest.fixture
+    def mock_db(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def watcher(self, mock_config, mock_nas, mock_db):
+        return Watcher(mock_config, mock_nas, mock_db, worker_id="TestWorker")
+
+    def test_acquire_lock_success(self, watcher):
+        """First acquire_lock() creates the lock directory and owner.json."""
+        result = watcher.acquire_lock()
+
+        assert result is not None
+        assert result.is_dir()
+        assert result.name == "watcher_TestWorker.lock"
+        assert watcher.lock_dir == result
+        assert (result / "owner.json").exists()
+
+    def test_acquire_lock_already_held(self, watcher):
+        """Second instance on same worker_id returns None."""
+        first = watcher.acquire_lock()
+        assert first is not None
+
+        # Second watcher shares the same nas mock (same state path)
+        watcher2 = Watcher(watcher.config, watcher.nas, watcher.db, worker_id="TestWorker")
+        second = watcher2.acquire_lock()
+
+        assert second is None
+        assert watcher2.lock_dir is None
+
+    def test_release_lock(self, watcher):
+        """release_lock() removes owner.json and the lock directory."""
+        lock_dir = watcher.acquire_lock()
+        assert lock_dir.exists()
+
+        watcher.release_lock()
+
+        assert not lock_dir.exists()
+        assert watcher.lock_dir is None
+
+    def test_write_lock_owner(self, watcher):
+        """owner.json contains correct fields and types."""
+        lock_dir = watcher.acquire_lock()
+
+        with open(lock_dir / "owner.json") as f:
+            owner = json.load(f)
+
+        assert owner["watcher_id"] == "TestWorker"
+        assert isinstance(owner["pid"], int)
+        assert isinstance(owner["hostname"], str)
+        assert owner["executable"] == sys.executable
+        assert owner["utc_locked_at"].endswith("Z")
+
+
+class TestWatcherHeartbeatFile:
+    """Tests for atomic heartbeat file writing."""
+
+    @pytest.fixture
+    def mock_config(self):
+        return {
+            "environment": "development",
+            "database": {"host": "localhost", "user": "user", "password": "pass", "database": "db"},
+            "nas": {"root": "/tmp/nas"},
+            "logging": {"level": "INFO"},
+            "watcher": {"scan_interval_seconds": 10, "heartbeat_interval_seconds": 60},
+        }
+
+    @pytest.fixture
+    def mock_nas(self, tmp_path):
+        nas = MagicMock()
+        nas.get_state_path.return_value = tmp_path / "00_STATE"
+        nas.get_logs_path.return_value = tmp_path / "05_LOGS"
+        return nas
+
+    @pytest.fixture
+    def mock_db(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def watcher(self, mock_config, mock_nas, mock_db):
+        return Watcher(mock_config, mock_nas, mock_db, worker_id="TestWorker")
+
+    def test_write_heartbeat_file(self, watcher):
+        """Heartbeat file written correctly; no .tmp file remains."""
+        watcher.write_heartbeat_file()
+
+        state_path = watcher.nas.get_state_path()
+        target = state_path / "watcher_heartbeat_TestWorker.json"
+        tmp_file = target.with_suffix(".tmp")
+
+        assert target.exists()
+        assert not tmp_file.exists()
+
+        with open(target) as f:
+            data = json.load(f)
+
+        assert data["watcher_id"] == "TestWorker"
+        assert isinstance(data["pid"], int)
+        assert isinstance(data["hostname"], str)
+        assert data["status"] == "running"
+        assert data["utc"].endswith("Z")
+        assert data["poll_seconds"] == 10  # matches scan_interval_seconds in fixture
+
+
+class TestWatcherEventLoop:
+    """Tests for the run() event loop timing gates."""
+
+    @pytest.fixture
+    def mock_config(self):
+        return {
+            "environment": "development",
+            "database": {"host": "localhost", "user": "user", "password": "pass", "database": "db"},
+            "nas": {"root": "/tmp/nas"},
+            "logging": {"level": "INFO"},
+            "watcher": {"scan_interval_seconds": 2, "heartbeat_interval_seconds": 5},
+        }
+
+    @pytest.fixture
+    def mock_nas(self, tmp_path):
+        nas = MagicMock()
+        nas.get_state_path.return_value = tmp_path / "00_STATE"
+        nas.get_logs_path.return_value = tmp_path / "05_LOGS"
+        nas.get_worker_inbox_path.return_value = tmp_path / "05_LOGS" / "Worker_Inbox"
+        return nas
+
+    @pytest.fixture
+    def mock_db(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def watcher(self, mock_config, mock_nas, mock_db):
+        return Watcher(mock_config, mock_nas, mock_db, worker_id="TestWorker")
+
+    @patch("time.sleep")
+    @patch("time.time")
+    def test_event_loop_scans_periodically(self, mock_time, mock_sleep, watcher):
+        """scan_pending_tasks fires when scan_interval has elapsed."""
+        # time.time() returns: 0 (pre-loop), 3 (first loop tick — 3 >= scan_interval 2)
+        mock_time.side_effect = [0, 3]
+
+        # Allow one full iteration; stop on the second sleep
+        call_count = {"n": 0}
+        def stop_on_second_sleep(duration):
+            call_count["n"] += 1
+            if call_count["n"] >= 2:
+                watcher.running = False
+        mock_sleep.side_effect = stop_on_second_sleep
+
+        watcher.scan_pending_tasks = Mock(return_value=[])
+        watcher.report_heartbeat = Mock()
+        watcher.write_heartbeat_file = Mock()
+
+        watcher.run()
+
+        # scan_pending_tasks must have been called at least once in the scan gate
+        assert watcher.scan_pending_tasks.call_count >= 1
+
+    @patch("time.sleep")
+    @patch("time.time")
+    def test_event_loop_heartbeat_periodically(self, mock_time, mock_sleep, watcher):
+        """report_heartbeat + write_heartbeat_file fire when heartbeat_interval elapses."""
+        # time.time() returns: 0 (pre-loop), 6 (first loop tick — 6 >= heartbeat_interval 5)
+        mock_time.side_effect = [0, 6]
+
+        call_count = {"n": 0}
+        def stop_on_second_sleep(duration):
+            call_count["n"] += 1
+            if call_count["n"] >= 2:
+                watcher.running = False
+        mock_sleep.side_effect = stop_on_second_sleep
+
+        watcher.scan_pending_tasks = Mock(return_value=[])
+        watcher.report_heartbeat = Mock()
+        watcher.write_heartbeat_file = Mock()
+
+        watcher.run()
+
+        # Called once in the unconditional initial block + once in the heartbeat gate
+        assert watcher.report_heartbeat.call_count >= 2
+        assert watcher.write_heartbeat_file.call_count >= 2

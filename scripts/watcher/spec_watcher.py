@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import signal
+import socket
 import sys
 import time
 from datetime import datetime, timezone
@@ -76,6 +77,7 @@ class Watcher:
         self.worker_id = worker_id
         self.running = True
         self.last_heartbeat = None
+        self.lock_dir: Optional[Path] = None
 
         # Set up signal handlers for graceful shutdown
         signal.signal(signal.SIGTERM, self.handle_shutdown)
@@ -87,47 +89,70 @@ class Watcher:
         """Handle shutdown signals gracefully."""
         logger.info(f"Received signal {signum}, shutting down gracefully...")
         self.running = False
+        self.release_lock()
 
-    def run(self, dry_run: bool = False) -> int:
-        """Run the main watcher loop.
+    def run(self) -> int:
+        """Run the main watcher event loop.
 
-        Args:
-            dry_run: If True, scan tasks but don't execute them.
+        Polls on a 1-second tick. Scans only when scan_interval has elapsed;
+        reports heartbeat (DB upsert + file) only when heartbeat_interval has elapsed.
 
         Returns:
             Exit code (0 for clean shutdown, 1 for error)
         """
-        logger.info("Watcher started")
+        logger.info("Watcher event loop starting")
+
+        scan_interval = self.config.get("watcher", {}).get(
+            "scan_interval_seconds", 30
+        )
+        heartbeat_interval = self.config.get("watcher", {}).get(
+            "heartbeat_interval_seconds", 300
+        )
 
         try:
-            while self.running:
-                try:
-                    # Scan for pending tasks
-                    tasks = self.scan_pending_tasks()
-                    if tasks:
-                        logger.debug(f"Found {len(tasks)} pending tasks")
+            now = time.time()
+            last_scan_time = now
+            last_heartbeat_time = now
 
-                        # Process each task
+            # Unconditional initial heartbeat before the loop
+            try:
+                self.report_heartbeat()
+                self.write_heartbeat_file()
+                logger.info("Reported heartbeat to database and file")
+            except Exception as e:
+                logger.warning(f"Initial heartbeat failed: {e}")
+
+            while self.running:
+                time.sleep(1)
+                if not self.running:
+                    break
+
+                now = time.time()
+
+                # --- scan gate ---
+                if (now - last_scan_time) >= scan_interval:
+                    try:
+                        tasks = self.scan_pending_tasks()
+                        logger.info(
+                            f"Scanned Worker_Inbox/, found {len(tasks)} pending tasks"
+                        )
                         for task in tasks:
                             if not self.running:
                                 break
+                            self.process_task(task)
+                        last_scan_time = now
+                    except Exception as e:
+                        logger.error(f"Error during scan/process: {e}", exc_info=True)
 
-                            self._process_task(task, dry_run)
-
-                    # Report heartbeat periodically
-                    self._report_heartbeat_if_needed()
-
-                    # Sleep before next scan
-                    scan_interval = self.config.get("watcher", {}).get(
-                        "scan_interval_seconds", 30
-                    )
-                    time.sleep(scan_interval)
-
-                except Exception as e:
-                    logger.error(f"Error in watcher loop: {e}", exc_info=True)
-                    if not self.running:
-                        break
-                    time.sleep(5)  # Brief pause before retry
+                # --- heartbeat gate ---
+                if (now - last_heartbeat_time) >= heartbeat_interval:
+                    try:
+                        self.report_heartbeat()
+                        self.write_heartbeat_file()
+                        last_heartbeat_time = now
+                        logger.info("Reported heartbeat to database and file")
+                    except Exception as e:
+                        logger.warning(f"Failed to report heartbeat: {e}")
 
             logger.info("Watcher shutdown complete")
             return 0
@@ -136,21 +161,16 @@ class Watcher:
             logger.error(f"Fatal error in watcher: {e}", exc_info=True)
             return 1
 
-    def _process_task(self, task: dict, dry_run: bool = False) -> None:
+    def process_task(self, task: dict) -> None:
         """Process a single task.
 
         Args:
             task: Task dictionary with metadata
-            dry_run: If True, don't actually execute
         """
         task_id = task.get("task_id", "unknown")
 
         try:
             logger.info(f"[TASK:{task_id}] Processing")
-
-            if dry_run:
-                logger.info(f"[TASK:{task_id}] DRY_RUN: Would execute {task.get('handler')}")
-                return
 
             # Attempt to claim task
             if not self.claim_task(task_id):
@@ -170,6 +190,92 @@ class Watcher:
         except Exception as e:
             logger.error(f"[TASK:{task_id}] Unexpected error: {e}", exc_info=True)
             self.record_result(task, {"error": str(e)}, success=False)
+
+    def acquire_lock(self) -> Optional[Path]:
+        """Acquire single-instance lock via atomic mkdir.
+
+        Lock directory: 00_STATE/locks/watcher_{worker_id}.lock/
+        mkdir() without exist_ok is atomic on all target filesystems —
+        fails with FileExistsError if another instance holds it.
+
+        Returns:
+            Path to lock directory if acquired, None if already locked.
+        """
+        locks_dir = self.nas.get_state_path() / "locks"
+        locks_dir.mkdir(parents=True, exist_ok=True)
+
+        lock_dir = locks_dir / f"watcher_{self.worker_id}.lock"
+        try:
+            lock_dir.mkdir()  # atomic — raises FileExistsError if exists
+            self.write_lock_owner(lock_dir)
+            self.lock_dir = lock_dir
+            logger.info(f"Lock acquired: {lock_dir}")
+            return lock_dir
+        except FileExistsError:
+            logger.warning(f"Lock already held: {lock_dir}")
+            return None
+
+    def write_lock_owner(self, lock_dir: Path) -> None:
+        """Write owner.json inside the lock directory.
+
+        Args:
+            lock_dir: Path to the lock directory (must already exist).
+        """
+        owner = {
+            "watcher_id": self.worker_id,
+            "pid": os.getpid(),
+            "hostname": socket.gethostname(),
+            "executable": sys.executable,
+            "utc_locked_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z",
+        }
+        owner_file = lock_dir / "owner.json"
+        owner_file.write_text(json.dumps(owner, indent=2), encoding="utf-8")
+
+    def release_lock(self) -> None:
+        """Release the lock by removing owner.json then the lock directory.
+
+        Safe to call when no lock is held (self.lock_dir is None).
+        Idempotent: sets self.lock_dir = None in finally so repeated calls are no-ops.
+        """
+        if self.lock_dir is None:
+            return
+        try:
+            owner_file = self.lock_dir / "owner.json"
+            if owner_file.exists():
+                owner_file.unlink()
+            self.lock_dir.rmdir()
+            logger.info(f"Lock released: {self.lock_dir}")
+        except Exception as e:
+            logger.warning(f"Failed to release lock {self.lock_dir}: {e}")
+        finally:
+            self.lock_dir = None
+
+    def write_heartbeat_file(self) -> None:
+        """Write heartbeat JSON atomically to 00_STATE/.
+
+        Uses tmp-then-replace so a monitoring script never sees a partial file.
+        Path.replace() (not .rename()) is used because .rename() raises on Windows
+        if the target already exists.
+        """
+        state_path = self.nas.get_state_path()
+        state_path.mkdir(parents=True, exist_ok=True)
+
+        heartbeat_data = {
+            "watcher_id": self.worker_id,
+            "pid": os.getpid(),
+            "hostname": socket.gethostname(),
+            "status": "running",
+            "utc": datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z",
+            "poll_seconds": self.config.get("watcher", {}).get(
+                "scan_interval_seconds", 30
+            ),
+        }
+
+        target = state_path / f"watcher_heartbeat_{self.worker_id}.json"
+        tmp_path = target.with_suffix(".tmp")
+
+        tmp_path.write_text(json.dumps(heartbeat_data, indent=2), encoding="utf-8")
+        tmp_path.replace(target)  # atomic on same filesystem
 
     def scan_pending_tasks(self) -> list:
         """Scan Worker_Inbox for incoming job flags.
@@ -314,23 +420,6 @@ class Watcher:
         except Exception as e:
             logger.error(f"[TASK:{task_id}] Failed to record result: {e}")
 
-    def _report_heartbeat_if_needed(self) -> None:
-        """Report heartbeat to database if interval has passed."""
-        heartbeat_interval = self.config.get("watcher", {}).get(
-            "heartbeat_interval_seconds", 300
-        )
-        now = time.time()
-
-        if (
-            self.last_heartbeat is None
-            or (now - self.last_heartbeat) >= heartbeat_interval
-        ):
-            try:
-                self.report_heartbeat()
-                self.last_heartbeat = now
-            except Exception as e:
-                logger.warning(f"Failed to report heartbeat: {e}")
-
     def report_heartbeat(self) -> None:
         """Report worker heartbeat to database.
 
@@ -451,11 +540,35 @@ def main(args: list = None) -> int:
         nas = NasManager(config)
         db = Database(config["database"])
 
-        # Create and run watcher
+        # Create watcher
         watcher = Watcher(config, nas, db, worker_id=parsed.worker_id)
-        exit_code = watcher.run(dry_run=parsed.dry_run)
 
-        db.close()
+        # --- dry-run path: scan once, print, exit. No lock. ---
+        if parsed.dry_run:
+            tasks = watcher.scan_pending_tasks()
+            logger.info(f"DRY_RUN: found {len(tasks)} pending tasks in Worker_Inbox/")
+            for task in tasks:
+                logger.info(
+                    f"  [TASK:{task.get('task_id', 'unknown')}] "
+                    f"handler={task.get('handler')}"
+                )
+            db.close()
+            return 0
+
+        # --- normal mode: acquire lock, run loop, release in finally ---
+        if watcher.acquire_lock() is None:
+            logger.error(
+                f"Another instance holds the lock for worker_id={parsed.worker_id}. Exiting."
+            )
+            db.close()
+            return 1
+
+        try:
+            exit_code = watcher.run()
+        finally:
+            watcher.release_lock()
+            db.close()
+
         return exit_code
 
     except (ConfigError, NasError, DatabaseError) as e:
