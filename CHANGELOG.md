@@ -204,6 +204,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `TestWatcherLocking` (4 tests): Lock acquisition, collision detection, release, owner.json validation
     - `TestWatcherHeartbeatFile` (1 test): Atomic file writes with proper cleanup
     - `TestWatcherEventLoop` (2 tests): Scan and heartbeat gates firing with mocked time
+  - **Configuration updates:**
+    - Development: `heartbeat_interval_seconds` set to 30 (faster feedback during testing)
+    - Production: `heartbeat_interval_seconds` reduced from 300 to 30 (improved health monitoring visibility)
+    - Both environments now report watcher health every 30 seconds via database and filesystem
 
 ### Notes
 - Timezone handling: All database timestamps stored in UTC. Application-layer conversion to CAT (Central Africa Time) to be implemented when building console and reporting tools.

@@ -25,4 +25,4 @@ watcher:
   test_mode: false
   max_concurrent_tasks: 1
   scan_interval_seconds: 30
-  heartbeat_interval_seconds: 300
+  heartbeat_interval_seconds: 30
