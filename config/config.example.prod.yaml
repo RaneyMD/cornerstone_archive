@@ -1,0 +1,28 @@
+# Production Configuration
+environment: production
+
+database:
+  host: cornerstonearchive.raneyworld.com
+  user: raneywor_csa_app
+  password: ${DB_PASSWORD}
+  database: raneywor_csa_state
+
+nas:
+  root: \\RaneyHQ\Michael\02_Projects\Cornerstone_Archive
+  scratch: C:\Scratch\NVMe
+
+internet_archive:
+  base_url: https://archive.org
+  api_timeout_seconds: 30
+  rate_limit_per_second: 1
+
+logging:
+  level: INFO
+  path: \\RaneyHQ\Michael\02_Projects\Cornerstone_Archive\05_LOGS
+
+watcher:
+  continuous_mode: true
+  test_mode: false
+  max_concurrent_tasks: 1
+  scan_interval_seconds: 30
+  heartbeat_interval_seconds: 300
