@@ -273,7 +273,7 @@ cornerstone_archive/
 # Deployed to OrionMX and OrionMega
 environment: production
 database:
-  host: cornerstonearchive.raneyworld.com
+  host: gator2111.hostgator.com
   database: raneywor_csa_state
   user: raneywor_csa_app
   password: ${DB_PASSWORD}
@@ -302,7 +302,7 @@ watcher:
 # Used only on development machines
 environment: development
 database:
-  host: cornerstonearchive.raneyworld.com
+  host: gator2111.hostgator.com
   database: cornerstone_archive_dev
   user: raneywor_csa_dev
   password: ${DB_PASSWORD_DEV}
@@ -716,7 +716,7 @@ supervisor restart spec_watcher
 # Deployed to OrionMX and OrionMega
 environment: production
 database:
-  host: cornerstonearchive.raneyworld.com
+  host: gator2111.hostgator.com
   database: raneywor_csa_state
   user: raneywor_csa_app
   password: ${DB_PASSWORD}
@@ -745,7 +745,7 @@ watcher:
 # Used only on development machines
 environment: development
 database:
-  host: cornerstonearchive.raneyworld.com
+  host: gator2111.hostgator.com
   database: cornerstone_archive_dev
   user: raneywor_csa_dev
   password: ${DB_PASSWORD_DEV}
