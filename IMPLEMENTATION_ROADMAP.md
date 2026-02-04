@@ -54,7 +54,7 @@
 ### Local Processing
 
 **OrionMX:** Primary watcher, runs continuously
-- Cloned repo at `C:\spec-collection\` or similar
+- Cloned repo at `C:\cornerstone_archive\` or similar
 - Config: `config/config.yaml` (production)
 - Scratch: `C:\Scratch\NVMe\` (temporary processing)
 
@@ -63,7 +63,7 @@
 - Config: `config/config.yaml` (shared or separate)
 
 **NAS (RaneyHQ):** Workflow hub & authoritative storage
-- Root: `\\RaneyHQ\Michael\02_Projects\Specification_Collection\`
+- Root: `\\RaneyHQ\Michael\02_Projects\Cornerstone_Archive\`
 - Structure follows Project A's NAS_LAYOUT.md approach:
   - `00_STATE` — project snapshots
   - `01_INTAKE` — source receipts
@@ -273,7 +273,7 @@ cornerstone_archive/
 # Deployed to OrionMX and OrionMega
 environment: production
 database:
-  host: gator2111.hostgator.com
+  host: cornerstonearchive.raneyworld.com
   database: raneywor_csa_state
   user: raneywor_csa_app
   password: ${DB_PASSWORD}
@@ -302,7 +302,7 @@ watcher:
 # Used only on development machines
 environment: development
 database:
-  host: gator2111.hostgator.com
+  host: cornerstonearchive.raneyworld.com
   database: cornerstone_archive_dev
   user: raneywor_csa_dev
   password: ${DB_PASSWORD_DEV}
@@ -443,7 +443,7 @@ page_pack_manifests_t (documents page packs)
 
 ### State Machine
 ```
-\\RaneyHQ\Michael\02_Projects\Specification_Collection\0200_STATE\flags\
+\\RaneyHQ\Michael\02_Projects\Cornerstone_Archive\05_LOGS\flags\
 
 pending/
 ├─ <task_id>.flag      ← watcher discovers, scans continuously
@@ -662,11 +662,11 @@ supervisor restart spec_watcher
 ## VII. Implementation Roadmap
 
 ### Week 1: Infrastructure & Foundation
-- [ ] Set up dev databases on HostGator (spec_collection_dev_wiki, spec_collection_dev_state)
-- [ ] Set up dev subdomains (dev.raneyworld.com, dev-console.raneyworld.com)
-- [ ] Create new GitHub repository
-- [ ] Port database migrations from Project B
-- [ ] Set up testing infrastructure (pytest, fixtures, conftest.py)
+- [x] Set up dev databases on HostGator (raneywor_csa_dev_wiki, raneywor_csa_dev_state)
+- [x] Set up dev subdomains (dev.raneyworld.com, dev-console.raneyworld.com)
+- [x] Create new GitHub repository
+- [x] Port database migrations from Project B
+- [x] Set up testing infrastructure (pytest, fixtures, conftest.py)
 
 ### Week 2-3: Watcher & Core Scripts
 - [ ] Port spec_watcher.py from Project B's hjb_watcher.py
@@ -716,7 +716,7 @@ supervisor restart spec_watcher
 # Deployed to OrionMX and OrionMega
 environment: production
 database:
-  host: gator2111.hostgator.com
+  host: cornerstonearchive.raneyworld.com
   database: raneywor_csa_state
   user: raneywor_csa_app
   password: ${DB_PASSWORD}
@@ -745,7 +745,7 @@ watcher:
 # Used only on development machines
 environment: development
 database:
-  host: gator2111.hostgator.com
+  host: cornerstonearchive.raneyworld.com
   database: cornerstone_archive_dev
   user: raneywor_csa_dev
   password: ${DB_PASSWORD_DEV}
