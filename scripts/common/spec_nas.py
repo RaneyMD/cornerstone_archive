@@ -79,6 +79,30 @@ class NasManager:
         """
         return self.nas_root / "05_LOGS"
 
+    def get_worker_inbox_path(self) -> Path:
+        """Get path to worker inbox directory.
+
+        The worker inbox is where job flags are received for processing.
+        In the full system, the console writes to Console_Outbox and the
+        watcher polls this inbox for incoming jobs.
+
+        Returns:
+            Path to 05_LOGS/Worker_Inbox/ directory.
+        """
+        return self.nas_root / "05_LOGS" / "Worker_Inbox"
+
+    def get_worker_outbox_path(self) -> Path:
+        """Get path to worker outbox directory.
+
+        The worker outbox is where job results are written after execution.
+        In the full system, the console polls Console_Inbox to retrieve
+        results written here by the watcher.
+
+        Returns:
+            Path to 05_LOGS/Worker_Outbox/ directory.
+        """
+        return self.nas_root / "05_LOGS" / "Worker_Outbox"
+
     def get_reference_path(self) -> Path:
         """Get path to reference PDFs directory.
 

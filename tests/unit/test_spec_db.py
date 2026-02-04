@@ -67,6 +67,31 @@ class TestDatabaseInit:
         with pytest.raises(DatabaseError, match="Failed to initialize database pool"):
             Database(config)
 
+    @patch("scripts.common.spec_db.pooling.MySQLConnectionPool")
+    def test_database_timezone_set_to_utc(self, mock_pool_class):
+        """Test that database connection is set to UTC timezone."""
+        mock_pool = MagicMock()
+        mock_cursor = MagicMock()
+        mock_connection = MagicMock()
+        mock_connection.cursor.return_value = mock_cursor
+        mock_pool.get_connection.return_value = mock_connection
+
+        mock_pool_class.return_value = mock_pool
+
+        config = {
+            "host": "localhost",
+            "user": "testuser",
+            "password": "testpass",
+            "database": "testdb",
+        }
+
+        db = Database(config)
+
+        # Verify that timezone was set during initialization
+        mock_cursor.execute.assert_called()
+        execute_calls = [call[0][0] for call in mock_cursor.execute.call_args_list]
+        assert any("time_zone" in call for call in execute_calls)
+
 
 class TestDatabaseQuery:
     """Tests for Database query methods."""
@@ -97,8 +122,9 @@ class TestDatabaseQuery:
         result = mock_db.query("SELECT * FROM test WHERE id = %s", (1,))
 
         assert result == [{"id": 1, "name": "test"}]
-        mock_connection.cursor.assert_called_once_with(dictionary=True)
-        mock_cursor.execute.assert_called_once_with("SELECT * FROM test WHERE id = %s", (1,))
+        # Timezone is set first, then the query
+        mock_cursor.execute.assert_any_call("SET SESSION time_zone = '+00:00'")
+        mock_cursor.execute.assert_any_call("SELECT * FROM test WHERE id = %s", (1,))
 
     @patch("scripts.common.spec_db.pooling.MySQLConnectionPool")
     def test_query_without_params(self, mock_pool_class, mock_db):
@@ -112,7 +138,9 @@ class TestDatabaseQuery:
         result = mock_db.query("SELECT * FROM test")
 
         assert result == []
-        mock_cursor.execute.assert_called_once_with("SELECT * FROM test")
+        # Timezone is set first, then the query
+        mock_cursor.execute.assert_any_call("SET SESSION time_zone = '+00:00'")
+        mock_cursor.execute.assert_any_call("SELECT * FROM test")
 
     @patch("scripts.common.spec_db.pooling.MySQLConnectionPool")
     def test_query_connection_error(self, mock_pool_class, mock_db):
@@ -180,7 +208,9 @@ class TestDatabaseExecute:
         result = mock_db.execute("INSERT INTO test (name) VALUES (%s)", ("test",))
 
         assert result == 1
-        mock_cursor.execute.assert_called_once()
+        # Timezone is set first, then the query
+        mock_cursor.execute.assert_any_call("SET SESSION time_zone = '+00:00'")
+        mock_cursor.execute.assert_any_call("INSERT INTO test (name) VALUES (%s)", ("test",))
         mock_connection.commit.assert_called_once()
 
     @patch("scripts.common.spec_db.pooling.MySQLConnectionPool")

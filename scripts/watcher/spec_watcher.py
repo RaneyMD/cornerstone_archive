@@ -11,7 +11,7 @@ import os
 import signal
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, Optional, Any
 from logging.handlers import RotatingFileHandler
@@ -172,19 +172,22 @@ class Watcher:
             self.record_result(task, {"error": str(e)}, success=False)
 
     def scan_pending_tasks(self) -> list:
-        """Scan pending/ directory for task flags.
+        """Scan Worker_Inbox for incoming job flags.
+
+        The Worker_Inbox is where job flags are placed for the watcher to discover.
+        In the full system, the console writes jobs here via Console_Outbox.
 
         Returns:
             List of task dictionaries (empty if no pending tasks)
         """
-        pending_path = self.nas.get_logs_path() / "flags" / "pending"
+        inbox_path = self.nas.get_worker_inbox_path()
 
-        if not pending_path.exists():
+        if not inbox_path.exists():
             return []
 
         tasks = []
         try:
-            for flag_file in sorted(pending_path.glob("*.flag")):
+            for flag_file in sorted(inbox_path.glob("*.flag")):
                 try:
                     with open(flag_file, "r") as f:
                         task = json.load(f)
@@ -193,12 +196,15 @@ class Watcher:
                     logger.warning(f"Failed to load task flag {flag_file.name}: {e}")
 
         except Exception as e:
-            logger.error(f"Error scanning pending tasks: {e}")
+            logger.error(f"Error scanning Worker_Inbox: {e}")
 
         return tasks
 
     def claim_task(self, task_id: str) -> bool:
         """Attempt to claim a task atomically.
+
+        Moves task from Worker_Inbox to processing/ (temporary state during execution).
+        This ensures only one worker processes each task.
 
         Args:
             task_id: Task ID to claim
@@ -209,19 +215,19 @@ class Watcher:
         Raises:
             TaskClaimError: If claim fails for other reasons
         """
-        pending_path = self.nas.get_logs_path() / "flags" / "pending"
-        processing_path = self.nas.get_logs_path() / "flags" / "processing"
+        inbox_path = self.nas.get_worker_inbox_path()
+        processing_path = self.nas.get_logs_path() / "processing"
 
         # Ensure processing directory exists
         processing_path.mkdir(parents=True, exist_ok=True)
 
-        flag_file = pending_path / f"{task_id}.flag"
+        flag_file = inbox_path / f"{task_id}.flag"
         processing_file = processing_path / f"{task_id}.flag"
 
         try:
             # Atomic rename (cross-platform)
             flag_file.rename(processing_file)
-            logger.debug(f"Claimed task: {task_id}")
+            logger.debug(f"Claimed task from Worker_Inbox: {task_id}")
             return True
         except FileNotFoundError:
             # Task already claimed by another worker
@@ -262,7 +268,11 @@ class Watcher:
             raise TaskExecutionError(f"Handler {handler_name} failed: {e}") from e
 
     def record_result(self, task: dict, result: dict, success: bool) -> None:
-        """Record task result to filesystem and database.
+        """Record task result to Worker_Outbox.
+
+        Writes results to the Worker_Outbox where the console can retrieve them.
+        Success results are written as {task_id}.result.json
+        Failure results are written as {task_id}.error.json
 
         Args:
             task: Task dictionary
@@ -270,32 +280,36 @@ class Watcher:
             success: Whether task succeeded
         """
         task_id = task.get("task_id", "unknown")
-        processing_path = self.nas.get_logs_path() / "flags" / "processing"
-        destination = "completed" if success else "failed"
-        dest_path = self.nas.get_logs_path() / "flags" / destination
+        processing_path = self.nas.get_logs_path() / "processing"
+        outbox_path = self.nas.get_worker_outbox_path()
 
-        # Ensure destination directory exists
-        dest_path.mkdir(parents=True, exist_ok=True)
+        # Ensure outbox directory exists
+        outbox_path.mkdir(parents=True, exist_ok=True)
 
         try:
-            # Move flag file to appropriate directory
+            # Remove processing flag file
             source_flag = processing_path / f"{task_id}.flag"
-            dest_flag = dest_path / f"{task_id}.flag"
             if source_flag.exists():
-                source_flag.rename(dest_flag)
+                source_flag.unlink()
 
-            # Write result JSON
-            result_file = dest_path / f"{task_id}.json"
+            # Write result to Worker_Outbox
+            result_filename = f"{task_id}.result.json" if success else f"{task_id}.error.json"
+            result_file = outbox_path / result_filename
+
+            # Get UTC timestamp
+            completed_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
+
             result_data = {
                 "task_id": task_id,
                 "success": success,
-                "completed_at": datetime.now().isoformat() + "Z",
+                "completed_at": completed_at,
                 "result": result,
             }
             with open(result_file, "w") as f:
                 json.dump(result_data, f, indent=2)
 
-            logger.debug(f"[TASK:{task_id}] Result recorded to {dest_path.name}/")
+            status = "success" if success else "failure"
+            logger.debug(f"[TASK:{task_id}] Result ({status}) recorded to Worker_Outbox/")
 
         except Exception as e:
             logger.error(f"[TASK:{task_id}] Failed to record result: {e}")
@@ -320,12 +334,18 @@ class Watcher:
     def report_heartbeat(self) -> None:
         """Report worker heartbeat to database.
 
-        Updates or inserts row in workers_t table.
+        Updates or inserts row in workers_t table with UTC timestamp.
+        The database connection is set to UTC, so NOW() returns UTC time.
+
+        Raises:
+            DatabaseError is caught and logged as warning
         """
         try:
-            status_summary = f"Watcher running, {len(self.scan_pending_tasks())} pending tasks"
+            inbox_tasks = len(self.scan_pending_tasks())
+            status_summary = f"Watcher running, {inbox_tasks} tasks in Worker_Inbox"
 
             # Use INSERT ... ON DUPLICATE KEY UPDATE to upsert
+            # Note: Database connection is set to UTC, so NOW() returns UTC time
             sql = """
                 INSERT INTO workers_t (worker_id, last_heartbeat_at, status_summary)
                 VALUES (%s, NOW(), %s)
@@ -334,7 +354,7 @@ class Watcher:
                     status_summary = VALUES(status_summary)
             """
             self.db.execute(sql, (self.worker_id, status_summary))
-            logger.debug(f"Heartbeat reported for {self.worker_id}")
+            logger.debug(f"Heartbeat reported for {self.worker_id} (UTC)")
 
         except DatabaseError as e:
             logger.warning(f"Failed to report heartbeat to database: {e}")

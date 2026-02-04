@@ -75,7 +75,10 @@ class Database:
         self._initialize_pool()
 
     def _initialize_pool(self) -> None:
-        """Initialize connection pool.
+        """Initialize connection pool with UTC timezone.
+
+        All database connections are set to UTC for consistent timestamp handling.
+        This ensures that NOW() and other time functions return UTC time.
 
         Raises:
             DatabaseError: If pool cannot be created.
@@ -90,12 +93,26 @@ class Database:
                 password=self.config.get("password", ""),
                 database=self.config["database"],
             )
-            logger.debug(f"Database pool initialized: {self.config['database']}")
+
+            # Test connection and set timezone to UTC
+            try:
+                conn = self.pool.get_connection()
+                cursor = conn.cursor()
+                cursor.execute("SET SESSION time_zone = '+00:00'")
+                cursor.close()
+                conn.close()
+                logger.debug(f"Database pool initialized with UTC timezone: {self.config['database']}")
+            except MySQLError as e:
+                logger.warning(f"Could not set timezone on initial test: {e}")
+
         except MySQLError as e:
             raise DatabaseError(f"Failed to initialize database pool: {e}") from e
 
     def _get_connection(self) -> Any:
-        """Get a connection from the pool with retry logic.
+        """Get a connection from the pool with UTC timezone and retry logic.
+
+        All connections are set to UTC timezone via 'SET SESSION time_zone = '+00:00''
+        to ensure consistent timestamp handling.
 
         Returns:
             MySQL database connection.
@@ -110,6 +127,17 @@ class Database:
         for attempt in range(self.max_retries):
             try:
                 connection = self.pool.get_connection()
+
+                # Set timezone to UTC for this connection
+                # This is needed because pool_reset_session resets the timezone
+                try:
+                    cursor = connection.cursor()
+                    cursor.execute("SET SESSION time_zone = '+00:00'")
+                    cursor.close()
+                except MySQLError:
+                    # Log but don't fail - timezone setting is advisory
+                    logger.debug("Could not set timezone on connection")
+
                 if attempt > 0:
                     logger.info(f"Database connection successful on attempt {attempt + 1}")
                 return connection

@@ -59,18 +59,18 @@ class TestWatcher:
         assert watcher.running is True
 
     def test_scan_pending_tasks_empty(self, watcher, tmp_path):
-        """Test scanning when no pending tasks."""
-        pending_path = tmp_path / "05_LOGS" / "flags" / "pending"
-        pending_path.mkdir(parents=True)
-        watcher.nas.get_logs_path.return_value = tmp_path / "05_LOGS"
+        """Test scanning when no tasks in Worker_Inbox."""
+        inbox_path = tmp_path / "05_LOGS" / "Worker_Inbox"
+        inbox_path.mkdir(parents=True)
+        watcher.nas.get_worker_inbox_path.return_value = inbox_path
 
         tasks = watcher.scan_pending_tasks()
         assert tasks == []
 
     def test_scan_pending_tasks_found(self, watcher, tmp_path):
-        """Test scanning finds pending tasks."""
-        pending_path = tmp_path / "05_LOGS" / "flags" / "pending"
-        pending_path.mkdir(parents=True)
+        """Test scanning finds tasks in Worker_Inbox."""
+        inbox_path = tmp_path / "05_LOGS" / "Worker_Inbox"
+        inbox_path.mkdir(parents=True)
 
         # Create task flag
         task_dict = {
@@ -79,10 +79,10 @@ class TestWatcher:
             "handler": "acquire_source",
             "params": {"ia_identifier": "test_ia"},
         }
-        with open(pending_path / "test_001.flag", "w") as f:
+        with open(inbox_path / "test_001.flag", "w") as f:
             json.dump(task_dict, f)
 
-        watcher.nas.get_logs_path.return_value = tmp_path / "05_LOGS"
+        watcher.nas.get_worker_inbox_path.return_value = inbox_path
         tasks = watcher.scan_pending_tasks()
 
         assert len(tasks) == 1
@@ -90,14 +90,14 @@ class TestWatcher:
 
     def test_scan_pending_tasks_invalid_json(self, watcher, tmp_path):
         """Test scanning handles invalid JSON gracefully."""
-        pending_path = tmp_path / "05_LOGS" / "flags" / "pending"
-        pending_path.mkdir(parents=True)
+        inbox_path = tmp_path / "05_LOGS" / "Worker_Inbox"
+        inbox_path.mkdir(parents=True)
 
         # Create invalid JSON file
-        with open(pending_path / "invalid.flag", "w") as f:
+        with open(inbox_path / "invalid.flag", "w") as f:
             f.write("invalid json {")
 
-        watcher.nas.get_logs_path.return_value = tmp_path / "05_LOGS"
+        watcher.nas.get_worker_inbox_path.return_value = inbox_path
         tasks = watcher.scan_pending_tasks()
 
         # Should skip invalid file and return empty list
@@ -105,90 +105,90 @@ class TestWatcher:
 
     def test_claim_task_success(self, watcher, tmp_path):
         """Test successful task claiming."""
-        flags_path = tmp_path / "05_LOGS" / "flags"
-        pending_path = flags_path / "pending"
-        processing_path = flags_path / "processing"
-        pending_path.mkdir(parents=True)
+        inbox_path = tmp_path / "05_LOGS" / "Worker_Inbox"
+        processing_path = tmp_path / "05_LOGS" / "processing"
+        inbox_path.mkdir(parents=True)
         processing_path.mkdir(parents=True)
 
-        # Create pending task
-        pending_file = pending_path / "test_001.flag"
-        pending_file.write_text("{}")
+        # Create inbox task
+        inbox_file = inbox_path / "test_001.flag"
+        inbox_file.write_text("{}")
 
+        watcher.nas.get_worker_inbox_path.return_value = inbox_path
         watcher.nas.get_logs_path.return_value = tmp_path / "05_LOGS"
 
         # Claim task
         result = watcher.claim_task("test_001")
 
         assert result is True
-        assert not pending_file.exists()
+        assert not inbox_file.exists()
         assert (processing_path / "test_001.flag").exists()
 
     def test_claim_task_already_claimed(self, watcher, tmp_path):
         """Test claiming already-claimed task."""
-        flags_path = tmp_path / "05_LOGS" / "flags"
-        processing_path = flags_path / "processing"
-        processing_path.mkdir(parents=True)
+        inbox_path = tmp_path / "05_LOGS" / "Worker_Inbox"
+        inbox_path.mkdir(parents=True)
 
+        watcher.nas.get_worker_inbox_path.return_value = inbox_path
         watcher.nas.get_logs_path.return_value = tmp_path / "05_LOGS"
 
-        # Attempt to claim non-existent pending task
+        # Attempt to claim non-existent inbox task
         result = watcher.claim_task("nonexistent")
 
         assert result is False
 
     def test_record_result_success(self, watcher, tmp_path):
-        """Test recording successful task result."""
-        flags_path = tmp_path / "05_LOGS" / "flags"
-        processing_path = flags_path / "processing"
-        completed_path = flags_path / "completed"
+        """Test recording successful task result to Worker_Outbox."""
+        processing_path = tmp_path / "05_LOGS" / "processing"
+        outbox_path = tmp_path / "05_LOGS" / "Worker_Outbox"
         processing_path.mkdir(parents=True)
-        completed_path.mkdir(parents=True)
+        outbox_path.mkdir(parents=True)
 
         # Create processing task
         (processing_path / "test_001.flag").write_text("{}")
 
         watcher.nas.get_logs_path.return_value = tmp_path / "05_LOGS"
+        watcher.nas.get_worker_outbox_path.return_value = outbox_path
 
         task = {"task_id": "test_001"}
         result = {"status": "success", "pages": 42}
 
         watcher.record_result(task, result, success=True)
 
-        # Flag should be moved to completed
+        # Processing flag should be removed
         assert not (processing_path / "test_001.flag").exists()
-        assert (completed_path / "test_001.flag").exists()
-        assert (completed_path / "test_001.json").exists()
+        # Result should be in Worker_Outbox
+        assert (outbox_path / "test_001.result.json").exists()
 
         # Check result file content
-        with open(completed_path / "test_001.json") as f:
+        with open(outbox_path / "test_001.result.json") as f:
             result_data = json.load(f)
             assert result_data["task_id"] == "test_001"
             assert result_data["success"] is True
             assert result_data["result"]["status"] == "success"
 
     def test_record_result_failure(self, watcher, tmp_path):
-        """Test recording failed task result."""
-        flags_path = tmp_path / "05_LOGS" / "flags"
-        processing_path = flags_path / "processing"
-        failed_path = flags_path / "failed"
+        """Test recording failed task result to Worker_Outbox."""
+        processing_path = tmp_path / "05_LOGS" / "processing"
+        outbox_path = tmp_path / "05_LOGS" / "Worker_Outbox"
         processing_path.mkdir(parents=True)
-        failed_path.mkdir(parents=True)
+        outbox_path.mkdir(parents=True)
 
         # Create processing task
         (processing_path / "test_001.flag").write_text("{}")
 
         watcher.nas.get_logs_path.return_value = tmp_path / "05_LOGS"
+        watcher.nas.get_worker_outbox_path.return_value = outbox_path
 
         task = {"task_id": "test_001"}
         result = {"error": "Download failed"}
 
         watcher.record_result(task, result, success=False)
 
-        # Flag should be moved to failed
+        # Processing flag should be removed
         assert not (processing_path / "test_001.flag").exists()
-        assert (failed_path / "test_001.flag").exists()
-        assert (failed_path / "test_001.json").exists()
+        # Error should be in Worker_Outbox with .error.json extension
+        assert (outbox_path / "test_001.error.json").exists()
 
     def test_report_heartbeat(self, watcher, mock_db):
         """Test heartbeat reporting to database."""
@@ -201,6 +201,20 @@ class TestWatcher:
         call_args = mock_db.execute.call_args
         assert "workers_t" in call_args[0][0]
         assert "TestWorker" in call_args[0][1]
+
+    def test_report_heartbeat_uses_utc(self, watcher, mock_db):
+        """Test that heartbeat is reported with UTC timezone and new terminology."""
+        watcher.scan_pending_tasks = Mock(return_value=[])
+
+        watcher.report_heartbeat()
+
+        # Verify the heartbeat mention is about Worker_Inbox (new terminology)
+        call_args = mock_db.execute.call_args
+        sql = call_args[0][0]
+        params = call_args[0][1]
+        status_summary = params[1]  # Get status_summary from params tuple
+        assert "Worker_Inbox" in status_summary
+        assert "workers_t" in sql
 
     def test_execute_handler_success(self, watcher):
         """Test successful handler execution."""

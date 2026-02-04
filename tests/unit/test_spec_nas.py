@@ -109,6 +109,20 @@ class TestNasManager:
         state_path = nas.get_state_path()
         assert str(state_path).endswith("00_STATE")
 
+    def test_get_worker_inbox_path(self, config_with_nas):
+        """Test getting worker inbox path."""
+        nas = NasManager(config_with_nas)
+        inbox_path = nas.get_worker_inbox_path()
+        path_str = str(inbox_path).replace("\\", "/")
+        assert path_str.endswith("05_LOGS/Worker_Inbox")
+
+    def test_get_worker_outbox_path(self, config_with_nas):
+        """Test getting worker outbox path."""
+        nas = NasManager(config_with_nas)
+        outbox_path = nas.get_worker_outbox_path()
+        path_str = str(outbox_path).replace("\\", "/")
+        assert path_str.endswith("05_LOGS/Worker_Outbox")
+
     def test_is_accessible_existing_path(self, config_with_nas):
         """Test is_accessible returns True for existing readable path."""
         nas = NasManager(config_with_nas)

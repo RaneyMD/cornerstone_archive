@@ -33,6 +33,8 @@ def generate_ia_tasks(
 ) -> dict:
     """Generate task flags for list of IA identifiers.
 
+    Creates job flags in the Worker_Inbox for the watcher to discover and process.
+
     Args:
         ia_identifiers: List of IA identifiers
         nas: NasManager instance
@@ -47,8 +49,8 @@ def generate_ia_tasks(
         "errors": [],
     }
 
-    pending_path = nas.get_logs_path() / "flags" / "pending"
-    pending_path.mkdir(parents=True, exist_ok=True)
+    inbox_path = nas.get_worker_inbox_path()
+    inbox_path.mkdir(parents=True, exist_ok=True)
 
     for ia_id in ia_identifiers:
         try:
@@ -81,12 +83,12 @@ def generate_ia_tasks(
                 "timeout_seconds": 3600,
             }
 
-            # Write task flag to pending/
-            flag_file = pending_path / f"{task_id}.flag"
+            # Write task flag to Worker_Inbox
+            flag_file = inbox_path / f"{task_id}.flag"
             with open(flag_file, "w") as f:
                 json.dump(task_dict, f, indent=2)
 
-            logger.info(f"Created task: {task_id}")
+            logger.info(f"Created task in Worker_Inbox: {task_id}")
             results["tasks_created"] += 1
             results["tasks_queued"] += 1
 
