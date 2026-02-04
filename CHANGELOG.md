@@ -176,6 +176,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated `generate_ia_tasks.py` to write task flags to `Worker_Inbox/`
   - All unit tests updated and passing: 112 passed, 3 skipped
 
+- **Watcher event loop and production health monitoring** — Single-instance lock + atomic heartbeat writes
+  - **Event loop refactoring:**
+    - Replaced blocking scan-then-sleep pattern with 1-second polling tick
+    - Implemented time-gated intervals: scans only fire when `scan_interval_seconds` elapses, heartbeats when `heartbeat_interval_seconds` elapses
+    - Configurable intervals via `watcher.scan_interval_seconds` (default: 30s) and `watcher.heartbeat_interval_seconds` (default: 300s)
+    - Removed `dry_run` parameter from `run()` (moved to `main()` before lock acquisition)
+    - Unconditional initial heartbeat fires before loop to ensure immediate visibility on startup
+    - Max 1-second shutdown latency via sleep-then-check pattern
+  - **Single-instance lock management (atomic filesystem-based):**
+    - `acquire_lock()`: Creates lock directory in `00_STATE/locks/watcher_{worker_id}.lock/` using atomic `mkdir()` (fails with `FileExistsError` if held)
+    - `release_lock()`: Idempotent cleanup (safe for repeated calls via `finally` block)
+    - `write_lock_owner()`: Records process metadata to `owner.json` (pid, hostname, executable path, UTC timestamp)
+    - Prevents multiple watcher instances on same worker_id
+    - `handle_shutdown()` calls `release_lock()` on SIGTERM/SIGINT
+  - **Production health monitoring:**
+    - `write_heartbeat_file()`: Atomic tmp-then-replace JSON to `00_STATE/watcher_heartbeat_{worker_id}.json`
+    - Heartbeat payload: worker_id, pid, hostname, status, UTC timestamp, poll interval
+    - No `.tmp` files leak via atomic replace semantics
+    - Combined with database heartbeat (`report_heartbeat()`) for dual monitoring
+  - **Dry-run refactoring:**
+    - Moved to `main()` before lock acquisition (scans once, prints task list, exits cleanly)
+    - Renamed `_process_task()` → `process_task()` (no longer internal, public API)
+    - Deleted `_report_heartbeat_if_needed()` (timing now managed by `run()` loop)
+  - **Test coverage:** 8 new unit tests | 120 total passed, 3 skipped
+    - `test_handle_shutdown_releases_lock`: Verifies shutdown → lock cleanup
+    - `TestWatcherLocking` (4 tests): Lock acquisition, collision detection, release, owner.json validation
+    - `TestWatcherHeartbeatFile` (1 test): Atomic file writes with proper cleanup
+    - `TestWatcherEventLoop` (2 tests): Scan and heartbeat gates firing with mocked time
+
 ### Notes
 - Timezone handling: All database timestamps stored in UTC. Application-layer conversion to CAT (Central Africa Time) to be implemented when building console and reporting tools.
 - Instance key is manually assigned with UI template assistance, not auto-generated, to allow flexibility for edge cases.
