@@ -80,6 +80,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Placeholder test structure (unit, integration, e2e, fixtures)
   - .github/workflows/tests.yml for CI/CD on push/PR to main and develop branches
 
+#### Scripts & Utilities
+- **scripts/common/spec_config.py** — Configuration loading and validation utility
+  - `Config` class: Dict-like config object with validation and dot-notation access
+  - `load_config()` function: Loads YAML files with recursive environment variable substitution (`${VAR_NAME}` and `${VAR_NAME:default}` syntax)
+  - Comprehensive validation: environment (development/production), database credentials, logging levels, watcher intervals
+  - Helpful error messages with context for troubleshooting
+  - 19 unit tests | 94% code coverage
+
+- **scripts/common/spec_nas.py** — NAS path utilities and validation
+  - `NasManager` class: Manages NAS path construction following NAS_LAYOUT.md structure
+  - Methods: `get_raw_path()`, `get_work_path()`, `get_logs_path()`, `get_reference_path()`, `get_publish_path()`, `get_state_path()`
+  - Accessibility validation: `is_accessible()`, `is_writable()`
+  - Directory creation: `create_work_dir()` with permission error handling
+  - Verification: `verify_all_paths()` to check all 6 standard directories (00_STATE through 05_LOGS)
+  - Windows-compatible path handling
+  - 22 unit tests | 83% code coverage
+
+- **scripts/common/spec_db.py** — MySQL database connection and query utilities
+  - `Database` class: Connection pooling via mysql-connector-python with configurable pool size
+  - Query methods: `query()` (SELECT, returns list of dicts), `get_one()` (single result or None)
+  - Execution methods: `execute()` (INSERT/UPDATE/DELETE), `execute_many()` (batch operations)
+  - Automatic retry logic: Up to 3 attempts with exponential backoff (1s, 2s, 4s delays)
+  - Context manager support for automatic cleanup
+  - Graceful error handling and logging
+  - 18 unit tests | 90% code coverage
+
+- **scripts/ops/verify_nas_paths.py** — NAS health check and monitoring script
+  - Command-line utility: `python -m scripts.ops.verify_nas_paths [--config CONFIG] [--verbose]`
+  - `verify_nas_paths()` function: Verifies all 6 standard NAS directories exist and are accessible
+  - Disk space monitoring: Warns if <10% free, errors if <5% free
+  - Human-readable report output with [OK], [WARN], [ERROR] status indicators
+  - Exit codes: 0 (success), 1 (errors detected) for scripting/monitoring integration
+  - Can be run manually or via Windows Task Scheduler for continuous health monitoring
+  - 12 integration tests | 84% code coverage
+
+#### Test Coverage Summary
+- **Unit tests:** 56 tests across spec_config, spec_nas, spec_db (67 total passed, 4 skipped on Windows)
+- **Integration tests:** 12 tests for verify_nas_paths (verify path accessibility, config handling, output formatting)
+- **Overall coverage:** 88% across all new utility scripts
+- **Total test code:** 1,003 lines of comprehensive test coverage (345 + 209 + 267 + 182 lines)
+- **Production code:** 940 lines (189 + 185 + 285 + 281 lines)
+
 - **.gitignore** — Project-specific patterns for:
   - Python artifacts (__pycache__, *.pyc, eggs, virtualenvs)
   - IDE/editor files (VS Code, Sublime, PyCharm)
