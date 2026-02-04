@@ -1,0 +1,26 @@
+# Development Configuration
+environment: development
+
+database:
+  host: cornerstonearchive.raneyworld.com
+  user: raneywor_csa_dev
+  password: ${DB_PASSWORD_DEV}
+  database: raneywor_csa_dev_state
+
+nas:
+  root: \\RaneyHQ\Michael\02_Projects\Cornerstone_Archive
+  scratch: C:\Scratch\NVMe
+
+internet_archive:
+  base_url: https://archive.org
+  api_timeout_seconds: 60
+  rate_limit_per_second: 2
+
+logging:
+  level: DEBUG
+  path: \\RaneyHQ\Michael\02_Projects\Cornerstone_Archive\05_LOGS\dev
+
+watcher:
+  continuous_mode: false
+  test_mode: true
+  max_concurrent_tasks: 1
