@@ -161,6 +161,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Edition template: `{FAMILY_CODE}_ed_{YEAR}` (year only, edition may be unspecified)
   - Rationale: Flexibility for edge cases while maintaining deduplication safety
 
+- **Task flow nomenclature and timezone handling** — Refactored watcher and Stage 1 scripts
+  - Replaced task state directory structure with clear worker-console communication pattern:
+    - `Worker_Inbox/` replaces `pending/` directory (incoming tasks from console)
+    - `Worker_Outbox/` replaces `completed/` and `failed/` directories (results back to console)
+    - Success results stored as `{task_id}.result.json`
+    - Failure results stored as `{task_id}.error.json`
+  - Added `get_worker_inbox_path()` and `get_worker_outbox_path()` methods to `NasManager`
+  - Fixed timezone handling to ensure all timestamps are UTC:
+    - `SET SESSION time_zone = '+00:00'` executed on pool initialization and every connection retrieval
+    - Database timestamps always stored and retrieved in UTC regardless of system timezone
+    - Replaced deprecated `datetime.utcnow()` with `datetime.now(timezone.utc)`
+  - Updated `spec_watcher.py` to use new paths and UTC timestamps for heartbeat reporting
+  - Updated `generate_ia_tasks.py` to write task flags to `Worker_Inbox/`
+  - All unit tests updated and passing: 112 passed, 3 skipped
+
 ### Notes
 - Timezone handling: All database timestamps stored in UTC. Application-layer conversion to CAT (Central Africa Time) to be implemented when building console and reporting tools.
 - Instance key is manually assigned with UI template assistance, not auto-generated, to allow flexibility for edge cases.
