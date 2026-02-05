@@ -155,6 +155,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Uses INSERT ... ON DUPLICATE KEY UPDATE for reliable upserting
   - Maintains compatibility with existing heartbeat file writes
 
+- **Supervisor pause flag support** (`scripts/watcher/spec_watcher.py`)
+  - Check for `supervisor_pause_{worker_id}.flag` on each event loop iteration
+  - Gracefully shut down when pause flag is detected (after current task completes)
+  - Stop accepting new tasks until pause flag is removed
+  - Pause detection latency: ~1 second (loop tick) + current task duration
+  - Enables supervisor control via pause_watcher/resume_watcher handlers
+
 #### Database & Schema
 
 - **Extended workers_t heartbeat storage** (`002_extend_workers_t_heartbeat_fields.sql`)

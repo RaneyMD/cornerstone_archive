@@ -21,6 +21,7 @@ from logging.handlers import RotatingFileHandler
 from scripts.common.spec_config import load_config, ConfigError
 from scripts.common.spec_nas import NasManager, NasError
 from scripts.common.spec_db import Database, DatabaseError
+from scripts.supervisor.utils import is_watcher_paused
 
 
 logger = logging.getLogger(__name__)
@@ -276,6 +277,16 @@ class Watcher:
                     break
 
                 now = time.time()
+
+                # --- pause flag check ---
+                state_path = self.nas.get_state_path()
+                if is_watcher_paused(state_path, self.worker_id):
+                    logger.info(
+                        f"Pause flag detected for {self.worker_id}, "
+                        "shutting down gracefully..."
+                    )
+                    self.running = False
+                    break
 
                 # --- scan gate ---
                 if (now - last_scan_time) >= scan_interval:
