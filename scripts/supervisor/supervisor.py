@@ -24,6 +24,8 @@ from scripts.supervisor.heartbeat import (
 from scripts.supervisor.utils import (
     check_watcher_process,
     is_watcher_healthy,
+    is_watcher_paused,
+    start_watcher,
 )
 
 logger = logging.getLogger(__name__)
@@ -150,10 +152,11 @@ class Supervisor:
 
         Process:
         1. Check watcher health
-        2. Process control flags
-        3. Report heartbeat to database
-        4. Write heartbeat file
-        5. Exit
+        2. Auto-restart if stopped (unless paused)
+        3. Process control flags
+        4. Report heartbeat to database
+        5. Write heartbeat file
+        6. Exit
 
         Returns:
             Exit code (0 = success, 1 = error)
@@ -169,6 +172,22 @@ class Supervisor:
             # Check watcher health
             health = self.check_watcher_health()
             watcher_state = health['state']
+
+            # Auto-restart if stopped (unless intentionally paused)
+            if not health['running']:
+                state_path = self.nas.get_state_path()
+                if is_watcher_paused(state_path, self.worker_id):
+                    logger.info(f"Watcher {self.worker_id} is paused, skipping auto-restart")
+                else:
+                    logger.warning(f"Watcher {self.worker_id} is stopped, auto-restarting...")
+                    success = start_watcher(self.worker_id, self.config_path)
+                    if success:
+                        actions_taken.append('auto_restart_watcher')
+                        watcher_state = 'restarting'
+                        logger.info(f"Watcher {self.worker_id} restart initiated")
+                    else:
+                        logger.error(f"Failed to auto-restart watcher {self.worker_id}")
+                        error = "Failed to auto-restart watcher"
 
             # Process control flags
             logger.info("Processing control flags...")

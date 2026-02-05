@@ -330,6 +330,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Prompt results recorded under `prompt_execution` in task payloads for downstream consumers
   - Unit tests covering prompt runner file validation, JSON parsing, timeouts, and integration behavior
 
+### Added
+
+#### Supervisor Auto-Restart
+- **Watcher auto-restart on stopped detection** (`scripts/supervisor/supervisor.py`)
+  - Supervisor now automatically restarts stopped watchers on each run
+  - Unless watcher has been intentionally paused via `supervisor_pause_{worker_id}.flag`
+  - Respects pause flag: won't restart if paused, will restart if paused flag is removed
+  - Logs restart action and records in supervisor heartbeat for audit trail
+  - Updates watcher_state to 'restarting' when auto-restart is initiated
+  - Enables Task Scheduler to run supervisor periodically for automatic recovery
+
 ### Fixed
 
 #### Web Console - Timezone Handling
