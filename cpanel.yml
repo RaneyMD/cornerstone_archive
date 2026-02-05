@@ -1,6 +1,0 @@
----
-deployment:
-  tasks:
-    - export DEPLOYPATH=/home1/raneywor/dev-console.raneyworld.com
-    - /bin/rm -rf $DEPLOYPATH/*
-    - /bin/cp -R web_console/console_root/* $DEPLOYPATH/
