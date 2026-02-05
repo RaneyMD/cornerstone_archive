@@ -28,6 +28,7 @@ MAX_PROMPT_BYTES = 10 * 1024
 CLAUDE_ALLOWED_TOOLS = "Write,Edit,Bash"
 CLAUDE_OUTPUT_FORMAT = "json"
 CLAUDE_DEFAULT_TIMEOUT_SECONDS = 300
+CLAUDE_VALID_MODELS = {"opus", "sonnet", "haiku"}
 
 
 class WatcherError(Exception):
@@ -708,6 +709,10 @@ def main(args: list = None) -> int:
         prompt_runner = None
 
         if parsed.prompt_file:
+            if parsed.model and parsed.model not in CLAUDE_VALID_MODELS:
+                logger.error(f"Invalid model: {parsed.model}")
+                db.close()
+                return 1
             prompt_path = Path(parsed.prompt_file).expanduser()
             if not prompt_path.is_absolute():
                 prompt_path = (Path.cwd() / prompt_path).resolve()
