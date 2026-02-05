@@ -4,4 +4,4 @@ deployment:
     - export DEPLOYPATH=/home1/raneywor/dev-console.raneyworld.com
     - /bin/rm -rf $DEPLOYPATH/*
     - /bin/cp -R web_console/console_root/* $DEPLOYPATH/
-    - /bin/cp /home1/raneywor/cornerstone_archive_support/config/config.php $DEPLOYPATH/config/config.php
+    - /bin/ln -s /home1/raneywor/cornerstone_archive_support/config/config.php $DEPLOYPATH/config/config.php
