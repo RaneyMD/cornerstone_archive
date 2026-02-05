@@ -11,10 +11,12 @@ from typing import Any, Dict, List, Optional
 from scripts.common.spec_db import Database
 from scripts.common.spec_nas import NasManager
 from scripts.supervisor.utils import (
+    check_watcher_process,
     create_pause_flag,
     delete_pause_flag,
     get_commit_log,
     get_current_commit,
+    is_watcher_healthy,
     is_watcher_paused,
     read_heartbeat_file,
     run_command,
