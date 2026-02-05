@@ -31,7 +31,7 @@ try {
 
         // Query workers_t for supervisor entry
         $sql = "SELECT worker_id, last_heartbeat_at, status_summary FROM workers_t WHERE worker_id = ?";
-        $result = $db->query($sql, [$supervisor_id]);
+        $result = $db->fetchAll($sql, [$supervisor_id]);
 
         if (!empty($result)) {
             $row = $result[0];
