@@ -194,6 +194,7 @@ cython_debug/
 config/config.yaml
 config/config.prod.yaml
 config/config.dev.yaml
+web_console/console_root/config/config.php
 
 # Temporary files and scratch work
 scratch/

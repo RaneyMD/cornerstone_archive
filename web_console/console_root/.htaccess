@@ -1,0 +1,53 @@
+# Cornerstone Archive Console - URL Rewriting and Security
+
+# Enable mod_rewrite
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Force HTTPS
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Block access to sensitive directories
+    RewriteRule ^(config|auth|app)/ - [F,L]
+
+    # Route all requests to index.php (except real files/directories)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php?path=$1 [QSA,L]
+</IfModule>
+
+# Disable directory listing
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+    # Prevent MIME-type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+
+    # Prevent clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # Enable XSS protection (older browsers)
+    Header always set X-XSS-Protection "1; mode=block"
+
+    # Referrer Policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Content Security Policy (basic)
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' cdn.jsdelivr.net code.jquery.com; style-src 'self' cdn.jsdelivr.net 'unsafe-inline';"
+</IfModule>
+
+# Prevent access to sensitive files
+<FilesMatch "\.(env|example|bak|tmp|old|swp)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Set PHP memory limit for this directory
+php_value memory_limit 128M
+php_value upload_max_filesize 100M
+php_value post_max_size 100M
