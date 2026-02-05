@@ -36,7 +36,7 @@ def load_supervisor_config(config_path: str = "config.dev.yaml") -> Dict[str, An
 
 
 def validate_supervisor_environment(
-    nas_state_path, worker_id: str
+    nas, worker_id: str
 ) -> Tuple[bool, list]:
     """
     Validate supervisor can access all needed resources.
@@ -47,7 +47,7 @@ def validate_supervisor_environment(
     - Worker_Outbox exists
 
     Args:
-        nas_state_path: Path to NAS 00_STATE directory
+        nas: NasManager instance
         worker_id: Watcher identifier
 
     Returns:
@@ -56,15 +56,17 @@ def validate_supervisor_environment(
     issues = []
 
     # Check NAS state path
-    if not nas_state_path.exists():
-        issues.append(f"NAS state path not accessible: {nas_state_path}")
-    else:
-        logger.info(f"NAS state path accessible: {nas_state_path}")
+    try:
+        state_path = nas.get_state_path()
+        if not state_path.exists():
+            issues.append(f"NAS state path not accessible: {state_path}")
+        else:
+            logger.info(f"NAS state path accessible: {state_path}")
+    except Exception as e:
+        issues.append(f"Error accessing state path: {e}")
 
     # Check Worker_Inbox
     try:
-        from scripts.common.spec_nas import NasManager
-        nas = NasManager(str(nas_state_path.parent.parent.parent))
         inbox = nas.get_worker_inbox_path()
         if not inbox.exists():
             inbox.mkdir(parents=True, exist_ok=True)

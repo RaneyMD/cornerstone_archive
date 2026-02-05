@@ -321,6 +321,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Unit tests covering prompt runner file validation, JSON parsing, timeouts, and integration behavior
 
 ### Fixed
+
+#### Supervisor Initialization
+- **Database initialization** (`scripts/supervisor/supervisor.py`)
+  - Fixed: Pass full config dict to Database instead of individual keyword arguments
+  - Changed from: `Database(host=..., user=..., password=..., database=...)`
+  - Changed to: `Database(db_config)` where db_config is the full database config dict
+  - Database pool is initialized in __init__, removed unnecessary connect() call
+
+- **Environment validation** (`scripts/supervisor/config.py`)
+  - Fixed: validate_supervisor_environment() was trying to create NasManager with string path
+  - Now accepts NasManager instance directly instead of state path
+  - Removed directory tree walking logic, uses NasManager methods directly
+  - Cleaner API contract, fewer error possibilities
+
+- **NAS Manager initialization** (`scripts/supervisor/supervisor.py`)
+  - Fixed: Supervisor was extracting nas_root string and passing to NasManager
+  - NasManager expects full config dict, now passes self.config directly
+
+#### Known Fixes
 - **IMPLEMENTATION_ROADMAP.md** — Corrected all Specification Collection references to Cornerstone Archive
   - Updated local clone path (spec-collection → cornerstone_archive)
   - Updated NAS root path and state machine diagram

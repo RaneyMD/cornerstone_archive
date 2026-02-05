@@ -54,20 +54,13 @@ class Supervisor:
         self.nas = NasManager(self.config)
 
         # Validate environment
-        state_path = self.nas.get_state_path()
-        valid, issues = validate_supervisor_environment(state_path, worker_id)
+        valid, issues = validate_supervisor_environment(self.nas, worker_id)
         if not valid:
             logger.warning(f"Environment validation issues: {issues}")
 
-        # Initialize database
+        # Initialize database (pass full config dict)
         db_config = self.config.get('database', {})
-        self.db = Database(
-            host=db_config.get('host'),
-            user=db_config.get('user'),
-            password=db_config.get('password'),
-            database=db_config.get('database'),
-        )
-        self.db.connect()
+        self.db = Database(db_config)
 
         logger.info(
             f"Supervisor initialized for {worker_id} "
