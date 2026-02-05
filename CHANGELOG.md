@@ -41,13 +41,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Audit logging for all authentication actions
   - Sensitive config files excluded from version control (`.gitignore`)
 
-#### Web Console - NAS Monitoring & AJAX APIs
-- **Multi-watcher heartbeat monitoring** (`app/NasMonitor.php`)
-  - Read and parse JSON heartbeat files from NAS (all watchers)
-  - Determine freshness status (running, stale, offline)
+#### Web Console - Heartbeat Monitoring & AJAX APIs
+- **Database-first heartbeat monitoring** (`app/NasMonitor.php`)
+  - Read watcher heartbeat data from `workers_t` database table (replaces file-based approach)
+  - Eliminates UNC path access issues on shared hosting
+  - Determine freshness status (running, stale, offline) from database timestamps
   - Configurable thresholds for stale (2x poll interval) and dead (10 minutes)
   - ISO 8601 timestamp parsing and relative age calculation
-  - Graceful error handling for missing/inaccessible files
+  - Graceful error handling for missing/inaccessible data
 
 - **Individual watcher management** (`app/Watcher.php`)
   - Query single watcher status from heartbeat + database
@@ -95,6 +96,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Modal dialog customization
   - Responsive grid layout for stat boxes
   - Code block styling in modals
+
+#### Watcher Updates
+- **Enhanced heartbeat reporting** (`scripts/watcher/spec_watcher.py`)
+  - Updated `report_heartbeat()` to write full heartbeat fields to database
+  - Write `pid`, `hostname`, `status`, `poll_seconds` to `workers_t` table
+  - Uses INSERT ... ON DUPLICATE KEY UPDATE for reliable upserting
+  - Maintains compatibility with existing heartbeat file writes
+
+#### Database & Schema
+
+- **Extended workers_t heartbeat storage** (`002_extend_workers_t_heartbeat_fields.sql`)
+  - Add `pid` (INT): Process ID of running watcher
+  - Add `hostname` (VARCHAR): Hostname where watcher runs
+  - Add `status` (VARCHAR): Current watcher status
+  - Add `poll_seconds` (INT): Scan interval in seconds
+  - Eliminates UNC path dependency on shared hosting
+  - Enables database-first heartbeat reading for better reliability
+
+### Changed
+
+- **Console heartbeat source:** Now reads from `workers_t` database table instead of NAS JSON files
+  - Solves UNC path access issues on HostGator shared hosting
+  - More reliable: Data always in sync with database updates
+  - Faster: Single database query vs. file I/O + JSON parsing
+  - All AJAX endpoints updated to use database-backed NasMonitor
 
 #### Database & Schema
 - **Foundation schema migration** (`001_create_cornerstone_archive_foundation_schema.sql`)

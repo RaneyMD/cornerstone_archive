@@ -1,79 +1,87 @@
 <?php
 /**
- * NAS Monitor - Reads and parses watcher heartbeat files
- * Handles multi-watcher heartbeat data from JSON files on the NAS
+ * Heartbeat Monitor - Reads watcher heartbeat data from database
+ * Handles multi-watcher heartbeat data from workers_t table
+ *
+ * NOTE: Originally read from NAS JSON files, but now reads from database
+ * for better reliability and to avoid UNC path access issues on shared hosting.
  */
 class NasMonitor {
-    private $nas_state_path;
+    private $db;
+    private $nas_state_path;  // Kept for compatibility, not used
 
-    public function __construct($nas_state_path) {
+    public function __construct($db, $nas_state_path = null) {
+        $this->db = $db;
         $this->nas_state_path = $nas_state_path;
     }
 
     /**
-     * Read a single watcher's heartbeat file
+     * Read a single watcher's heartbeat from database
      *
-     * @param string $watcher_id Watcher identifier (e.g., 'orionmx')
-     * @return array Parsed heartbeat data or null if file not found
+     * @param string $watcher_id Watcher identifier (e.g., 'OrionMX')
+     * @return array Parsed heartbeat data or null if not found
      */
     public function readHeartbeat($watcher_id) {
-        $filename = "watcher_heartbeat_{$watcher_id}.json";
-        $filepath = $this->nas_state_path . '\\' . $filename;
-
-        if (!file_exists($filepath)) {
-            return null;
-        }
-
         try {
-            $content = file_get_contents($filepath);
-            if ($content === false) {
-                error_log("Failed to read heartbeat file: $filepath");
+            $sql = "SELECT
+                        worker_id as watcher_id,
+                        last_heartbeat_at as timestamp,
+                        pid,
+                        hostname,
+                        status,
+                        poll_seconds,
+                        status_summary
+                    FROM workers_t
+                    WHERE worker_id = ?";
+
+            $row = $this->db->fetchOne($sql, [$watcher_id]);
+            if (!$row) {
                 return null;
             }
 
-            $data = json_decode($content, true);
-            if ($data === null) {
-                error_log("Invalid JSON in heartbeat file: $filepath");
-                return null;
+            // Convert MySQL datetime to ISO 8601
+            if ($row['timestamp']) {
+                $row['timestamp'] = $this->toIso8601($row['timestamp']);
             }
 
-            return $data;
+            return $row;
         } catch (Exception $e) {
-            error_log("Error reading heartbeat file: " . $e->getMessage());
+            error_log("Error reading heartbeat from database: " . $e->getMessage());
             return null;
         }
     }
 
     /**
-     * Read all watcher heartbeat files
+     * Read all watcher heartbeats from database
      *
      * @return array Keyed by watcher_id, with heartbeat data or null
      */
     public function readAllHeartbeats() {
         $heartbeats = [];
 
-        if (!is_dir($this->nas_state_path)) {
-            error_log("NAS state path not accessible: {$this->nas_state_path}");
-            return $heartbeats;
-        }
-
         try {
-            $files = glob($this->nas_state_path . '\\watcher_heartbeat_*.json');
-            if ($files === false) {
-                error_log("Failed to glob heartbeat files in: {$this->nas_state_path}");
-                return $heartbeats;
-            }
+            $sql = "SELECT
+                        worker_id as watcher_id,
+                        last_heartbeat_at as timestamp,
+                        pid,
+                        hostname,
+                        status,
+                        poll_seconds,
+                        status_summary
+                    FROM workers_t
+                    ORDER BY worker_id";
 
-            foreach ($files as $filepath) {
-                // Extract watcher_id from filename
-                $filename = basename($filepath);
-                if (preg_match('/^watcher_heartbeat_(.+)\.json$/', $filename, $matches)) {
-                    $watcher_id = $matches[1];
-                    $heartbeats[$watcher_id] = $this->readHeartbeat($watcher_id);
+            $rows = $this->db->fetchAll($sql);
+
+            foreach ($rows as $row) {
+                // Convert MySQL datetime to ISO 8601
+                if ($row['timestamp']) {
+                    $row['timestamp'] = $this->toIso8601($row['timestamp']);
                 }
+                $heartbeats[$row['watcher_id']] = $row;
             }
         } catch (Exception $e) {
-            error_log("Error reading heartbeat directory: " . $e->getMessage());
+            error_log("Error reading heartbeats from database: " . $e->getMessage());
         }
 
         return $heartbeats;
@@ -177,17 +185,33 @@ class NasMonitor {
     /**
      * Parse ISO 8601 timestamp to Unix timestamp
      *
-     * @param string $timestamp ISO 8601 timestamp
+     * @param string $timestamp ISO 8601 or MySQL datetime string
      * @return int|null Unix timestamp or null if parsing fails
      */
     private function parseTimestamp($timestamp) {
         try {
-            // Handle ISO 8601 format (e.g., "2026-02-05T00:15:30Z")
+            // Handle both ISO 8601 and MySQL datetime formats
             $dt = new DateTime($timestamp, new DateTimeZone('UTC'));
             return $dt->getTimestamp();
         } catch (Exception $e) {
             error_log("Failed to parse timestamp: $timestamp - " . $e->getMessage());
             return null;
+        }
+    }
+
+    /**
+     * Convert MySQL datetime to ISO 8601 format
+     *
+     * @param string $mysqlDatetime MySQL datetime string (e.g., "2026-02-05 16:53:00")
+     * @return string ISO 8601 format (e.g., "2026-02-05T16:53:00Z")
+     */
+    private function toIso8601($mysqlDatetime) {
+        try {
+            $dt = new DateTime($mysqlDatetime, new DateTimeZone('UTC'));
+            return $dt->format('c');  // ISO 8601 format
+        } catch (Exception $e) {
+            error_log("Failed to convert datetime: $mysqlDatetime - " . $e->getMessage());
+            return $mysqlDatetime;
         }
     }
 }

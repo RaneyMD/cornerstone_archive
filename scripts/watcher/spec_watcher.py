@@ -594,8 +594,10 @@ class Watcher:
     def report_heartbeat(self) -> None:
         """Report worker heartbeat to database.
 
-        Updates or inserts row in workers_t table with UTC timestamp.
+        Updates or inserts row in workers_t table with operational status.
         The database connection is set to UTC, so NOW() returns UTC time.
+
+        Writes all heartbeat fields: pid, hostname, status, poll_seconds.
 
         Raises:
             DatabaseError is caught and logged as warning
@@ -604,16 +606,36 @@ class Watcher:
             inbox_tasks = len(self.scan_pending_tasks())
             status_summary = f"Watcher running, {inbox_tasks} tasks in Worker_Inbox"
 
+            # Get poll interval from config
+            poll_seconds = self.config.get("watcher", {}).get(
+                "scan_interval_seconds", 30
+            )
+
             # Use INSERT ... ON DUPLICATE KEY UPDATE to upsert
             # Note: Database connection is set to UTC, so NOW() returns UTC time
             sql = """
-                INSERT INTO workers_t (worker_id, last_heartbeat_at, status_summary)
-                VALUES (%s, NOW(), %s)
+                INSERT INTO workers_t
+                    (worker_id, last_heartbeat_at, status_summary, pid, hostname, status, poll_seconds)
+                VALUES (%s, NOW(), %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     last_heartbeat_at = NOW(),
-                    status_summary = VALUES(status_summary)
+                    status_summary = VALUES(status_summary),
+                    pid = VALUES(pid),
+                    hostname = VALUES(hostname),
+                    status = VALUES(status),
+                    poll_seconds = VALUES(poll_seconds)
             """
-            self.db.execute(sql, (self.worker_id, status_summary))
+            self.db.execute(
+                sql,
+                (
+                    self.worker_id,
+                    status_summary,
+                    os.getpid(),
+                    socket.gethostname(),
+                    "running",
+                    poll_seconds,
+                ),
+            )
             logger.debug(f"Heartbeat reported for {self.worker_id} (UTC)")
 
         except DatabaseError as e:

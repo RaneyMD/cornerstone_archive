@@ -37,7 +37,7 @@ try {
     $db = new Database(DB_HOST, DB_USER, DB_PASS, DB_NAME);
     $db->connect();
 
-    $nas_monitor = new NasMonitor(NAS_STATE);
+    $nas_monitor = new NasMonitor($db, NAS_STATE);
 
     $manager = new WatcherManager(
         $db,
