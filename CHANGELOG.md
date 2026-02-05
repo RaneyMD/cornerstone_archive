@@ -70,6 +70,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `api/control.php` — POST control actions (restart, refresh, test task)
   - `api/logs.php` — GET recent watcher logs from database
 
+#### Web Console - Real-time Dashboard
+- **Dashboard JavaScript** (`assets/js/dashboard.js`)
+  - AJAX polling: Refresh watcher status every 5 seconds (auto-refresh)
+  - Real-time watcher status cards with color-coded badges
+  - Status icons: ✓ (running), ⚠ (stale), ✗ (offline)
+  - Health summary: Count running/stale/offline watchers
+  - Modal dialogs for watcher detail view and logs
+  - Control buttons: Restart, View Logs, View Detail per watcher
+  - Pending task count display
+  - Manual refresh button with last-refresh timestamp
+  - Graceful error handling and user notifications
+
+- **Updated Dashboard Page** (`pages/dashboard.php`)
+  - Rendered watcher status cards with AJAX-driven updates
+  - Health summary stat boxes (running, stale, offline, total)
+  - Pending tasks widget with link to task management page
+  - System status indicators (database, NAS)
+  - Auto-refresh every 5 seconds (configurable)
+  - Responsive Bootstrap 5 layout
+
+- **Styling Enhancements** (`assets/css/style.css`)
+  - Stat box styling for metrics display
+  - Modal dialog customization
+  - Responsive grid layout for stat boxes
+  - Code block styling in modals
+
 #### Database & Schema
 - **Foundation schema migration** (`001_create_cornerstone_archive_foundation_schema.sql`)
   - Complete 17-table schema organized in 4 operational tiers

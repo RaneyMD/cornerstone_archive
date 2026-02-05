@@ -197,6 +197,69 @@ body {
     border-width: 2px;
 }
 
+/* Stat Boxes */
+.stat-box {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-large {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.stat-large .stat-value {
+    font-size: 48px;
+}
+
+.stat-large .stat-label {
+    font-size: 14px;
+}
+
+/* Modal enhancements */
+.modal-body dl {
+    margin-bottom: 0;
+}
+
+.modal-body dt {
+    font-weight: 600;
+    color: #374151;
+}
+
+.modal-body dd {
+    margin-bottom: 0.5rem;
+}
+
+.modal-body code {
+    background-color: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #7c3aed;
+}
+
+.modal-body table {
+    margin-bottom: 0;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .watcher-info {
@@ -210,5 +273,13 @@ body {
     .container-fluid {
         padding-top: 10px;
         padding-bottom: 10px;
+    }
+
+    .stat-value {
+        font-size: 24px;
+    }
+
+    .stat-large .stat-value {
+        font-size: 36px;
     }
 }
