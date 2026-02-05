@@ -141,6 +141,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - tests/ (test suite organization)
   - templates/ (MediaWiki publishing templates)
 
+#### Watcher Automation
+- **Prompt-driven Claude execution for the spec watcher** (`scripts/watcher/spec_watcher.py`, `prompts/README.md`)
+  - Optional `--prompt-file` flow with model allowlist, timeout configuration, and dry-run support
+  - Prompt file validation (exists, readable, size cap) with structured error handling
+  - Claude invocation with JSON parsing that tolerates non-JSON prefixes
+  - Prompt results recorded under `prompt_execution` in task payloads for downstream consumers
+  - Unit tests covering prompt runner file validation, JSON parsing, timeouts, and integration behavior
+
 ### Fixed
 - **IMPLEMENTATION_ROADMAP.md** — Corrected all Specification Collection references to Cornerstone Archive
   - Updated local clone path (spec-collection → cornerstone_archive)
