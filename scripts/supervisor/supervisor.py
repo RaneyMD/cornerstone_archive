@@ -50,11 +50,8 @@ class Supervisor:
         logger.info(f"Initializing supervisor for {worker_id}")
         self.config = load_supervisor_config(config_path)
 
-        # Initialize NAS manager
-        nas_root = self.config.get('nas', {}).get('root')
-        if not nas_root:
-            raise NasError("'nas.root' not configured")
-        self.nas = NasManager(nas_root)
+        # Initialize NAS manager (pass full config)
+        self.nas = NasManager(self.config)
 
         # Validate environment
         state_path = self.nas.get_state_path()
