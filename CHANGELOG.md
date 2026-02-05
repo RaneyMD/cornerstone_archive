@@ -97,6 +97,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Responsive grid layout for stat boxes
   - Code block styling in modals
 
+#### Supervisor System
+- **Core supervisor process** (`scripts/supervisor/supervisor.py`)
+  - Single-pass execution model (runs once per Task Scheduler cycle)
+  - Supervisor class with run_once() method
+  - Configuration loading with environment validation
+  - Graceful signal handling (SIGTERM, SIGINT)
+  - Comprehensive logging (file + console, rotating 10MB max)
+
+- **Control flag handlers** (`scripts/supervisor/handlers.py`)
+  - `pause_watcher` — Create pause flag, gracefully stop watcher
+  - `resume_watcher` — Delete pause flag, start watcher process
+  - `update_code` — Git pull origin main with pre/post commit tracking
+  - `update_code_deps` — Git pull + pip install requirements-dev.txt (dev environment)
+  - `restart_watcher` — Stop and start watcher (respects pause flag)
+  - `rollback_code` — Revert 1-10 commits with error handling and partial rollback support
+  - `diagnostics` — Collect system state snapshot (process, heartbeat, DB, NAS, disk, logs)
+  - `verify_database` — Test database connectivity, queries, table access, timezone
+
+- **Supervisor utilities** (`scripts/supervisor/utils.py`)
+  - Process management: check_watcher_process, stop_watcher_gracefully, start_watcher
+  - Heartbeat analysis: is_watcher_healthy, is_watcher_paused, get_heartbeat_age_seconds
+  - Command execution: run_command with timeout and output capture
+  - Label validation: Alphanumeric, spaces, hyphens, underscores, max 100 chars
+  - Pause flag management: create_pause_flag, delete_pause_flag
+  - Git operations: get_current_commit, get_commit_log
+
+- **Control flow orchestration** (`scripts/supervisor/control_flow.py`)
+  - Scan Worker_Inbox for flag files in priority order
+  - Priority-based handler execution (code updates before operational)
+  - Flag JSON parsing with handler routing
+  - Graceful error handling and flag cleanup
+
+- **Heartbeat recording** (`scripts/supervisor/heartbeat.py`)
+  - File-based heartbeat: supervisor_heartbeat_{worker_id}.json (atomic write)
+  - Database heartbeat: UPDATE workers_t with status summary
+  - Watcher heartbeat reading and validation
+
+- **Configuration & validation** (`scripts/supervisor/config.py`)
+  - Load supervisor config from YAML
+  - Validate NAS paths, Worker_Inbox, Worker_Outbox accessibility
+  - Environment validation with issue reporting
+
+- **Flag-based control architecture:**
+  - Flag files in Worker_Inbox as JSON with handler + params + optional label
+  - Processing order: Code updates → Operational → Diagnostics
+  - Automatic flag cleanup on success or failure
+  - Optional labels (100 chars) for audit trail in logs and database
+
+- **Dependencies:**
+  - Added psutil>=5.9.0 to requirements.txt (process management)
+
 #### Watcher Updates
 - **Enhanced heartbeat reporting** (`scripts/watcher/spec_watcher.py`)
   - Updated `report_heartbeat()` to write full heartbeat fields to database
