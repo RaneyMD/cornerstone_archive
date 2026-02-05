@@ -183,15 +183,16 @@ class ClaudePromptRunner:
     def _parse_json_from_output(self, output: str) -> dict:
         """Attempt to extract JSON from stdout if leading text is present."""
         start = output.find("{")
-        end = output.rfind("}")
-        if start == -1 or end == -1 or end <= start:
+        if start == -1:
             raise ClaudeExecutionError("Claude output was not valid JSON")
-        try:
-            return json.loads(output[start : end + 1])
-        except json.JSONDecodeError as e:
-            raise ClaudeExecutionError(
-                f"Claude output was not valid JSON: {e}"
-            ) from e
+        for index in range(start, len(output)):
+            if output[index] != "{":
+                continue
+            try:
+                return json.loads(output[index:])
+            except json.JSONDecodeError:
+                continue
+        raise ClaudeExecutionError("Claude output was not valid JSON")
 
 
 class Watcher:

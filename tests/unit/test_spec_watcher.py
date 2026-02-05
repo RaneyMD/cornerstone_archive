@@ -617,6 +617,23 @@ class TestClaudePromptRunner:
             with pytest.raises(ClaudeExecutionError):
                 runner.run()
 
+    def test_stderr_on_success_is_returned(self, tmp_path):
+        """Successful runs can include stderr without failing."""
+        prompt_path = tmp_path / "prompt.md"
+        prompt_path.write_text("Do the thing", encoding="utf-8")
+        runner = ClaudePromptRunner(prompt_path)
+
+        completed = Mock()
+        completed.stdout = "{\"ok\": true}"
+        completed.stderr = "warning: something"
+        completed.returncode = 0
+
+        with patch("subprocess.run", return_value=completed):
+            result = runner.run()
+
+        assert result["parsed"] == {"ok": True}
+        assert result["stderr"] == "warning: something"
+
 
 class TestPromptRunnerCli:
     """Tests for CLI prompt runner configuration."""
@@ -685,3 +702,26 @@ class TestPromptRunnerCli:
 
         assert exit_code == 0
         assert captured["path"] == prompt_path.resolve()
+
+
+class TestPromptRunnerIntegration:
+    """Tests for watcher prompt runner integration."""
+
+    def test_prompt_runner_skipped_on_handler_failure(self, tmp_path):
+        """Prompt runner is not invoked if handler fails."""
+        config = {
+            "database": {"host": "localhost", "user": "user", "password": "pass", "database": "db"},
+            "logging": {"level": "INFO"},
+            "watcher": {"scan_interval_seconds": 5, "heartbeat_interval_seconds": 30},
+        }
+        nas = MagicMock()
+        db = MagicMock()
+        prompt_runner = MagicMock()
+        watcher = Watcher(config, nas, db, prompt_runner=prompt_runner)
+
+        task = {"task_id": "test_001", "handler": "missing_handler"}
+
+        with patch("scripts.watcher.spec_watcher.get_handler", return_value=None):
+            watcher.process_task(task)
+
+        prompt_runner.run.assert_not_called()
