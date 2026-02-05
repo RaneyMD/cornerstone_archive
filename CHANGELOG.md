@@ -41,6 +41,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Audit logging for all authentication actions
   - Sensitive config files excluded from version control (`.gitignore`)
 
+#### Web Console - NAS Monitoring & AJAX APIs
+- **Multi-watcher heartbeat monitoring** (`app/NasMonitor.php`)
+  - Read and parse JSON heartbeat files from NAS (all watchers)
+  - Determine freshness status (running, stale, offline)
+  - Configurable thresholds for stale (2x poll interval) and dead (10 minutes)
+  - ISO 8601 timestamp parsing and relative age calculation
+  - Graceful error handling for missing/inaccessible files
+
+- **Individual watcher management** (`app/Watcher.php`)
+  - Query single watcher status from heartbeat + database
+  - Fetch pending tasks and recent results per watcher
+  - Retrieve watcher logs from database
+  - Combine NAS heartbeat data with database state
+
+- **Multi-watcher aggregation** (`app/WatcherManager.php`)
+  - Manage 1-N watcher instances with single interface
+  - Aggregate health summary (running, stale, offline counts)
+  - Get system-wide pending task count
+  - Broadcast control actions to watchers
+  - Database and NAS connectivity status
+  - Comprehensive system health snapshot
+
+- **AJAX REST Endpoints:**
+  - `api/heartbeat.php` — GET all watcher statuses (dashboard polling, 5s interval)
+  - `api/watcher.php` — GET single watcher detail with tasks and logs
+  - `api/tasks.php` — GET pending/recent task lists with filtering
+  - `api/control.php` — POST control actions (restart, refresh, test task)
+  - `api/logs.php` — GET recent watcher logs from database
+
 #### Database & Schema
 - **Foundation schema migration** (`001_create_cornerstone_archive_foundation_schema.sql`)
   - Complete 17-table schema organized in 4 operational tiers
