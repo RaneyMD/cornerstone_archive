@@ -332,6 +332,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Web Console - Timezone Handling
+- **Supervisor heartbeat timestamp calculation** (`api/supervisor_heartbeat.php`)
+  - Fixed: Supervisor heartbeat was showing negative time (in future) due to UTC/local timezone mismatch
+  - Root cause: Database stores DATETIME fields in UTC without timezone indicator; `strtotime()` was parsing them as local Central Time
+  - Solution: Temporarily set timezone to UTC before parsing database timestamp, then restore original timezone
+  - Result: Accurate age_seconds calculation regardless of server timezone or user's local timezone
+  - Note: Watcher heartbeat calculation was already correct (uses DateTime with explicit UTC handling)
+
 #### Supervisor Initialization
 - **Database initialization** (`scripts/supervisor/supervisor.py`)
   - Fixed: Pass full config dict to Database instead of individual keyword arguments

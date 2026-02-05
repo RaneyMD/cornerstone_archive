@@ -42,7 +42,14 @@ try {
             $age_seconds = null;
 
             if ($row['last_heartbeat_at']) {
+                // Database stores UTC timestamps as DATETIME (no tz info)
+                // Parse as UTC by temporarily setting timezone
+                $tz = date_default_timezone_get();
+                date_default_timezone_set('UTC');
                 $last_time = strtotime($row['last_heartbeat_at']);
+                date_default_timezone_set($tz);
+
+                // Get current UTC time
                 $now = time();
                 $age_seconds = $now - $last_time;
             }
