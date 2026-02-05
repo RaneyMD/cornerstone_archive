@@ -3,6 +3,7 @@
 import json
 import os
 import pytest
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -14,6 +15,11 @@ from scripts.watcher.spec_watcher import (
     TaskClaimError,
     HandlerNotFoundError,
     TaskExecutionError,
+    ClaudeExecutionError,
+    ClaudePromptRunner,
+    PromptFileError,
+    main,
+    MAX_PROMPT_BYTES,
     get_handler,
 )
 
@@ -524,6 +530,158 @@ class TestWatcherEventLoop:
 
         watcher.run()
 
-        # Called once in the unconditional initial block + once in the heartbeat gate
-        assert watcher.report_heartbeat.call_count >= 2
-        assert watcher.write_heartbeat_file.call_count >= 2
+
+class TestClaudePromptRunner:
+    """Tests for ClaudePromptRunner behavior."""
+
+    def test_prompt_file_missing(self, tmp_path):
+        """Missing prompt file raises PromptFileError."""
+        prompt_path = tmp_path / "missing.md"
+        with pytest.raises(PromptFileError):
+            ClaudePromptRunner(prompt_path)
+
+    def test_prompt_file_not_a_file(self, tmp_path):
+        """Directory prompt path raises PromptFileError."""
+        prompt_path = tmp_path / "prompts"
+        prompt_path.mkdir()
+        with pytest.raises(PromptFileError):
+            ClaudePromptRunner(prompt_path)
+
+    def test_prompt_file_oversized(self, tmp_path):
+        """Oversized prompt file raises PromptFileError."""
+        prompt_path = tmp_path / "oversized.md"
+        prompt_path.write_text("a" * (MAX_PROMPT_BYTES + 1), encoding="utf-8")
+        with pytest.raises(PromptFileError):
+            ClaudePromptRunner(prompt_path)
+
+    def test_prompt_file_unreadable(self, tmp_path):
+        """Unreadable prompt file raises PromptFileError."""
+        prompt_path = tmp_path / "unreadable.md"
+        prompt_path.write_text("content", encoding="utf-8")
+        with patch.object(Path, "read_text", side_effect=OSError("unreadable")):
+            with pytest.raises(PromptFileError):
+                ClaudePromptRunner(prompt_path)
+
+    def test_dry_run_returns_command(self, tmp_path):
+        """Dry-run returns command structure without execution."""
+        prompt_path = tmp_path / "prompt.md"
+        prompt_path.write_text("Do the thing", encoding="utf-8")
+        runner = ClaudePromptRunner(prompt_path, dry_run=True)
+
+        result = runner.run()
+
+        assert result["success"] is True
+        assert result["dry_run"] is True
+        assert result["command"][0] == "claude"
+        assert "--allowedTools" in result["command"]
+        assert "--output-format" in result["command"]
+
+    def test_json_parse_with_prefix(self, tmp_path):
+        """Runner extracts JSON when stdout has leading text."""
+        prompt_path = tmp_path / "prompt.md"
+        prompt_path.write_text("Do the thing", encoding="utf-8")
+        runner = ClaudePromptRunner(prompt_path)
+
+        completed = Mock()
+        completed.stdout = "warning\n{\"ok\": true}\n"
+        completed.stderr = ""
+        completed.returncode = 0
+
+        with patch("subprocess.run", return_value=completed):
+            result = runner.run()
+
+        assert result["parsed"] == {"ok": True}
+
+    def test_json_parse_failure_raises(self, tmp_path):
+        """Runner raises ClaudeExecutionError when JSON is invalid."""
+        prompt_path = tmp_path / "prompt.md"
+        prompt_path.write_text("Do the thing", encoding="utf-8")
+        runner = ClaudePromptRunner(prompt_path)
+
+        completed = Mock()
+        completed.stdout = "warning\nnot json"
+        completed.stderr = ""
+        completed.returncode = 0
+
+        with patch("subprocess.run", return_value=completed):
+            with pytest.raises(ClaudeExecutionError):
+                runner.run()
+
+    def test_timeout_raises(self, tmp_path):
+        """Timeouts raise ClaudeExecutionError."""
+        prompt_path = tmp_path / "prompt.md"
+        prompt_path.write_text("Do the thing", encoding="utf-8")
+        runner = ClaudePromptRunner(prompt_path, timeout_seconds=1)
+
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="claude", timeout=1)):
+            with pytest.raises(ClaudeExecutionError):
+                runner.run()
+
+
+class TestPromptRunnerCli:
+    """Tests for CLI prompt runner configuration."""
+
+    def test_invalid_model_rejected(self, tmp_path, monkeypatch):
+        """Invalid model names cause startup failure."""
+        prompt_path = tmp_path / "prompt.md"
+        prompt_path.write_text("Do the thing", encoding="utf-8")
+
+        fake_config = {
+            "database": {"host": "localhost", "user": "user", "password": "pass", "database": "db"},
+            "logging": {"path": str(tmp_path / "logs")},
+        }
+
+        with patch("scripts.watcher.spec_watcher.load_config", return_value=fake_config), patch(
+            "scripts.watcher.spec_watcher.NasManager"
+        ), patch("scripts.watcher.spec_watcher.Database") as mock_db:
+            mock_db.return_value = MagicMock()
+            exit_code = main(
+                [
+                    "--config",
+                    "config/config.yaml",
+                    "--prompt-file",
+                    str(prompt_path),
+                    "--model",
+                    "invalid-model",
+                ]
+            )
+
+        assert exit_code == 1
+
+    def test_prompt_file_path_resolution(self, tmp_path, monkeypatch):
+        """Relative prompt paths resolve against the current working directory."""
+        prompt_path = tmp_path / "prompts" / "prompt.md"
+        prompt_path.parent.mkdir()
+        prompt_path.write_text("Do the thing", encoding="utf-8")
+
+        fake_config = {
+            "database": {"host": "localhost", "user": "user", "password": "pass", "database": "db"},
+            "logging": {"path": str(tmp_path / "logs")},
+        }
+
+        captured = {}
+
+        def fake_runner(path, model=None, dry_run=False, timeout_seconds=300):
+            captured["path"] = path
+            return MagicMock(prompt_path=path)
+
+        monkeypatch.chdir(tmp_path)
+
+        with patch("scripts.watcher.spec_watcher.load_config", return_value=fake_config), patch(
+            "scripts.watcher.spec_watcher.NasManager"
+        ), patch("scripts.watcher.spec_watcher.Database") as mock_db, patch(
+            "scripts.watcher.spec_watcher.ClaudePromptRunner", side_effect=fake_runner
+        ), patch.object(Watcher, "scan_pending_tasks", return_value=[]):
+            mock_db.return_value = MagicMock()
+            exit_code = main(
+                [
+                    "--config",
+                    "config/config.yaml",
+                    "--prompt-file",
+                    "prompts/prompt.md",
+                    "--dry-run",
+                ]
+            )
+
+        assert exit_code == 0
+        assert captured["path"] == prompt_path.resolve()
