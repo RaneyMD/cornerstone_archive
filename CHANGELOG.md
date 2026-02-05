@@ -91,11 +91,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Auto-refresh every 5 seconds (configurable)
   - Responsive Bootstrap 5 layout
 
+- **Supervisor heartbeat cards** (`pages/dashboard.php`, `assets/js/dashboard.js`)
+  - New "Supervisor Status" section showing status of each watcher's supervisor
+  - Real-time updates every 5 seconds via AJAX polling
+  - Status indicators: ✓ OK, ✗ Error, ⚠ Stale, ○ Offline
+  - Displays last supervisor run time and status summary
+  - New API endpoint: `/api/supervisor_heartbeat.php` queries `workers_t` for supervisor entries
+  - Color-coded cards with status-based styling (green/red/yellow/gray)
+
 - **Styling Enhancements** (`assets/css/style.css`)
   - Stat box styling for metrics display
   - Modal dialog customization
   - Responsive grid layout for stat boxes
   - Code block styling in modals
+  - Supervisor card styling with status-based borders and backgrounds
+  - Responsive grid layout for supervisor status details
 
 #### Supervisor System
 - **Core supervisor process** (`scripts/supervisor/supervisor.py`)

@@ -50,6 +50,18 @@
             </div>
         </div>
 
+        <!-- Supervisor Status Cards Section -->
+        <div class="mb-4">
+            <h4 class="mb-3">Supervisor Status</h4>
+            <div id="supervisors-container">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Watcher Status Cards Section -->
         <div class="mb-4">
             <h4 class="mb-3">Watcher Status</h4>

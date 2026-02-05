@@ -42,8 +42,133 @@ $(document).ready(function() {
  * Refresh entire dashboard
  */
 function refreshDashboard() {
+    refreshSupervisorStatus();
     refreshWatcherStatus();
     refreshTaskCounts();
+}
+
+/**
+ * Fetch and update supervisor heartbeats
+ */
+function refreshSupervisorStatus() {
+    $.ajax({
+        url: '/api/supervisor_heartbeat.php',
+        method: 'GET',
+        dataType: 'json',
+        timeout: 10000,
+        success: function(data) {
+            updateSupervisorCards(data.supervisors);
+            updateLastRefresh();
+        },
+        error: function(xhr, status, error) {
+            console.error('Supervisor heartbeat API error:', status, error);
+            // Don't show error alert - graceful degradation if supervisor endpoint not available
+        }
+    });
+}
+
+/**
+ * Update supervisor status cards on the page
+ */
+function updateSupervisorCards(supervisors) {
+    const container = $('#supervisors-container');
+
+    // Clear existing cards
+    container.empty();
+
+    if (supervisors.length === 0) {
+        container.html(
+            '<div class="alert alert-info">No supervisors configured.</div>'
+        );
+        return;
+    }
+
+    supervisors.forEach(function(supervisor) {
+        const card = buildSupervisorCard(supervisor);
+        container.append(card);
+    });
+}
+
+/**
+ * Build HTML for a single supervisor status card
+ */
+function buildSupervisorCard(supervisor) {
+    const statusBadgeClass = getSupervisorStatusBadgeClass(supervisor.status);
+    const statusIcon = getSupervisorStatusIcon(supervisor.status);
+    const ageDisplay = supervisor.age_seconds !== null ?
+        formatDuration(supervisor.age_seconds) + ' ago' : 'Never';
+
+    // Parse status summary for display
+    let statusText = supervisor.status_summary;
+    if (statusText.length > 100) {
+        statusText = statusText.substring(0, 100) + '...';
+    }
+
+    const html = `
+        <div class="card supervisor-card ${supervisor.status} mb-3">
+            <div class="card-body">
+                <div class="supervisor-header">
+                    <h5 class="supervisor-title">
+                        ${escapeHtml(supervisor.watcher_id)} Supervisor
+                        <span class="badge ${statusBadgeClass}">${statusIcon} ${supervisor.status.toUpperCase()}</span>
+                    </h5>
+                </div>
+
+                <div class="supervisor-info">
+                    <div class="supervisor-info-item">
+                        <div class="supervisor-info-label">Status</div>
+                        <div class="supervisor-info-value">
+                            ${statusText}
+                        </div>
+                    </div>
+                    <div class="supervisor-info-item">
+                        <div class="supervisor-info-label">Last Run</div>
+                        <div class="supervisor-info-value">
+                            ${ageDisplay}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    return html;
+}
+
+/**
+ * Get badge CSS class for supervisor status
+ */
+function getSupervisorStatusBadgeClass(status) {
+    switch (status) {
+        case 'ok':
+            return 'bg-success';
+        case 'error':
+            return 'bg-danger';
+        case 'stale':
+            return 'bg-warning';
+        case 'offline':
+            return 'bg-secondary';
+        default:
+            return 'bg-muted';
+    }
+}
+
+/**
+ * Get icon for supervisor status
+ */
+function getSupervisorStatusIcon(status) {
+    switch (status) {
+        case 'ok':
+            return '✓';
+        case 'error':
+            return '✗';
+        case 'stale':
+            return '⚠';
+        case 'offline':
+            return '○';
+        default:
+            return '?';
+    }
 }
 
 /**
