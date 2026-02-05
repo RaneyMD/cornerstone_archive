@@ -8,6 +8,7 @@ import argparse
 import json
 import logging
 import os
+import subprocess
 import signal
 import socket
 import sys
@@ -23,6 +24,10 @@ from scripts.common.spec_db import Database, DatabaseError
 
 
 logger = logging.getLogger(__name__)
+MAX_PROMPT_BYTES = 10 * 1024
+CLAUDE_ALLOWED_TOOLS = "Write,Edit,Bash"
+CLAUDE_OUTPUT_FORMAT = "json"
+CLAUDE_DEFAULT_TIMEOUT_SECONDS = 300
 
 
 class WatcherError(Exception):
@@ -49,6 +54,134 @@ class TaskExecutionError(WatcherError):
     pass
 
 
+class PromptFileError(WatcherError):
+    """Exception raised when prompt file loading fails."""
+
+    pass
+
+
+class ClaudeExecutionError(WatcherError):
+    """Exception raised when Claude execution fails."""
+
+    pass
+
+
+class ClaudePromptRunner:
+    """Utility for loading a prompt file and invoking Claude Code."""
+
+    def __init__(
+        self,
+        prompt_path: Path,
+        *,
+        model: Optional[str] = None,
+        dry_run: bool = False,
+        timeout_seconds: int = CLAUDE_DEFAULT_TIMEOUT_SECONDS,
+    ):
+        self.prompt_path = prompt_path
+        self.model = model
+        self.dry_run = dry_run
+        self.timeout_seconds = timeout_seconds
+        self.prompt_text = self._load_prompt()
+
+    def _load_prompt(self) -> str:
+        """Load prompt file contents, enforcing size and readability."""
+        try:
+            if not self.prompt_path.exists():
+                raise PromptFileError(f"Prompt file not found: {self.prompt_path}")
+            if not self.prompt_path.is_file():
+                raise PromptFileError(f"Prompt path is not a file: {self.prompt_path}")
+            size_bytes = self.prompt_path.stat().st_size
+        except OSError as e:
+            raise PromptFileError(f"Unable to access prompt file: {e}") from e
+
+        if size_bytes > MAX_PROMPT_BYTES:
+            raise PromptFileError(
+                f"Prompt file exceeds {MAX_PROMPT_BYTES} bytes: {self.prompt_path}"
+            )
+
+        try:
+            return self.prompt_path.read_text(encoding="utf-8")
+        except OSError as e:
+            raise PromptFileError(f"Unable to read prompt file: {e}") from e
+
+    def run(self) -> dict:
+        """Invoke Claude Code with the prompt file contents."""
+        command = [
+            "claude",
+            "-p",
+            self.prompt_text,
+            "--allowedTools",
+            CLAUDE_ALLOWED_TOOLS,
+            "--output-format",
+            CLAUDE_OUTPUT_FORMAT,
+        ]
+        if self.model:
+            command.extend(["--model", self.model])
+
+        logger.info(
+            "Claude invocation prepared (prompt_file=%s, bytes=%s, model=%s, dry_run=%s)",
+            self.prompt_path,
+            len(self.prompt_text.encode("utf-8")),
+            self.model or "default",
+            self.dry_run,
+        )
+
+        if self.dry_run:
+            return {
+                "success": True,
+                "dry_run": True,
+                "command": command,
+            }
+
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout_seconds,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as e:
+            raise ClaudeExecutionError(
+                f"Claude invocation timed out after {self.timeout_seconds} seconds"
+            ) from e
+        except OSError as e:
+            raise ClaudeExecutionError(f"Failed to execute Claude: {e}") from e
+
+        stdout = result.stdout.strip()
+        stderr = result.stderr.strip()
+
+        if result.returncode != 0:
+            raise ClaudeExecutionError(
+                "Claude invocation failed with return code "
+                f"{result.returncode}: {stderr or stdout}"
+            )
+
+        parsed_output: Optional[dict] = None
+        if stdout:
+            try:
+                parsed_output = json.loads(stdout)
+            except json.JSONDecodeError as e:
+                raise ClaudeExecutionError(
+                    f"Claude output was not valid JSON: {e}"
+                ) from e
+
+        logger.info(
+            "Claude invocation completed (stdout_bytes=%s, stderr_bytes=%s)",
+            len(result.stdout),
+            len(result.stderr),
+        )
+
+        return {
+            "success": True,
+            "dry_run": False,
+            "returncode": result.returncode,
+            "stdout": stdout,
+            "stderr": stderr,
+            "parsed": parsed_output,
+        }
+
+
 class Watcher:
     """Main watcher orchestration system.
 
@@ -62,6 +195,7 @@ class Watcher:
         nas_manager: NasManager,
         db: Database,
         worker_id: str = "OrionMX",
+        prompt_runner: Optional[ClaudePromptRunner] = None,
     ):
         """Initialize watcher.
 
@@ -78,6 +212,7 @@ class Watcher:
         self.running = True
         self.last_heartbeat = None
         self.lock_dir: Optional[Path] = None
+        self.prompt_runner = prompt_runner
 
         # Set up signal handlers for graceful shutdown
         signal.signal(signal.SIGTERM, self.handle_shutdown)
@@ -179,6 +314,10 @@ class Watcher:
 
             # Execute handler
             result = self.execute_handler(task)
+
+            prompt_result = self.run_prompt_if_configured(task)
+            if prompt_result is not None:
+                result = {**result, "prompt_execution": prompt_result}
 
             # Record success
             self.record_result(task, result, success=True)
@@ -373,6 +512,25 @@ class Watcher:
         except Exception as e:
             raise TaskExecutionError(f"Handler {handler_name} failed: {e}") from e
 
+    def run_prompt_if_configured(self, task: dict) -> Optional[dict]:
+        """Run the configured Claude prompt after a successful handler."""
+        if self.prompt_runner is None:
+            return None
+
+        task_id = task.get("task_id", "unknown")
+        try:
+            logger.info(f"[TASK:{task_id}] Running Claude prompt")
+            return self.prompt_runner.run()
+        except ClaudeExecutionError as e:
+            logger.error(f"[TASK:{task_id}] Claude execution failed: {e}")
+            return {"success": False, "error": str(e)}
+        except Exception as e:
+            logger.error(
+                f"[TASK:{task_id}] Unexpected Claude execution error: {e}",
+                exc_info=True,
+            )
+            return {"success": False, "error": str(e)}
+
     def record_result(self, task: dict, result: dict, success: bool) -> None:
         """Record task result to Worker_Outbox.
 
@@ -499,6 +657,14 @@ def main(args: list = None) -> int:
         default="OrionMX",
         help="Identifier for this worker (default: OrionMX)",
     )
+    parser.add_argument(
+        "--prompt-file",
+        help="Path to a markdown prompt file to run with Claude Code",
+    )
+    parser.add_argument(
+        "--model",
+        help="Model name to pass to Claude Code",
+    )
 
     parsed = parser.parse_args(args)
 
@@ -539,9 +705,31 @@ def main(args: list = None) -> int:
         # Initialize components
         nas = NasManager(config)
         db = Database(config["database"])
+        prompt_runner = None
+
+        if parsed.prompt_file:
+            prompt_path = Path(parsed.prompt_file).expanduser()
+            if not prompt_path.is_absolute():
+                prompt_path = (Path.cwd() / prompt_path).resolve()
+            try:
+                prompt_runner = ClaudePromptRunner(
+                    prompt_path,
+                    model=parsed.model,
+                    dry_run=parsed.dry_run,
+                )
+            except PromptFileError as e:
+                logger.error(f"Prompt file error: {e}")
+                db.close()
+                return 1
 
         # Create watcher
-        watcher = Watcher(config, nas, db, worker_id=parsed.worker_id)
+        watcher = Watcher(
+            config,
+            nas,
+            db,
+            worker_id=parsed.worker_id,
+            prompt_runner=prompt_runner,
+        )
 
         # --- dry-run path: scan once, print, exit. No lock. ---
         if parsed.dry_run:
@@ -551,6 +739,11 @@ def main(args: list = None) -> int:
                 logger.info(
                     f"  [TASK:{task.get('task_id', 'unknown')}] "
                     f"handler={task.get('handler')}"
+                )
+            if prompt_runner is not None:
+                logger.info(
+                    "DRY_RUN: would invoke Claude prompt from %s after each handler",
+                    prompt_runner.prompt_path,
                 )
             db.close()
             return 0
