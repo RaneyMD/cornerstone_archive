@@ -26,3 +26,10 @@ watcher:
   max_concurrent_tasks: 1
   scan_interval_seconds: 10
   heartbeat_interval_seconds: 30
+
+console:
+  inbox_path: /home1/raneywor/cornerstone_archive_support/console_inbox
+  outbox_path: /home1/raneywor/cornerstone_archive_support/console_outbox
+  result_poll_interval_seconds: 5
+  cleanup_processed_results: false
+  archive_path: /home1/raneywor/cornerstone_archive_support/console_results_archive

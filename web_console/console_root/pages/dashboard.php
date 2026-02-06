@@ -79,6 +79,171 @@
             <!-- Populated by JavaScript -->
         </div>
 
+        <!-- Console Control Panel -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Control Panel</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="control-flag-form" class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Worker</label>
+                                <select class="form-select" id="control-worker">
+                                    <option value="OrionMX">OrionMX</option>
+                                    <option value="OrionMega">OrionMega</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Label (optional)</label>
+                                <input type="text" class="form-control" id="control-label" maxlength="100">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Rollback commits</label>
+                                <input type="number" class="form-control" id="control-commits" value="1" min="1">
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end gap-2 flex-wrap">
+                                <button type="button" class="btn btn-outline-secondary" data-action="pause_watcher">Pause</button>
+                                <button type="button" class="btn btn-outline-secondary" data-action="resume_watcher">Resume</button>
+                                <button type="button" class="btn btn-outline-secondary" data-action="restart_watcher">Restart</button>
+                                <button type="button" class="btn btn-outline-primary" data-action="update_code">Update Code</button>
+                                <button type="button" class="btn btn-outline-primary" data-action="update_code_deps">Update Deps</button>
+                                <button type="button" class="btn btn-outline-warning" data-action="rollback_code">Rollback</button>
+                                <button type="button" class="btn btn-outline-info" data-action="diagnostics">Diagnostics</button>
+                                <button type="button" class="btn btn-outline-info" data-action="verify_db">Verify DB</button>
+                            </div>
+                        </form>
+                        <small class="text-muted">Control actions create supervisor flags and log to jobs_t/audit_log_t.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Task Queue -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Task Queue (Queued)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Job ID</th>
+                                        <th>Type</th>
+                                        <th>Label</th>
+                                        <th>Created</th>
+                                        <th>Attempts</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="queued-jobs-body">
+                                    <tr><td colspan="6" class="text-muted text-center">No queued jobs loaded.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-primary" type="button">Execute Now</button>
+                            <button class="btn btn-sm btn-outline-secondary" type="button">Cancel</button>
+                            <button class="btn btn-sm btn-outline-danger" type="button">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Running Jobs</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Job ID</th>
+                                        <th>Type</th>
+                                        <th>Label</th>
+                                        <th>Worker</th>
+                                        <th>Started</th>
+                                        <th>Elapsed</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="running-jobs-body">
+                                    <tr><td colspan="6" class="text-muted text-center">No running jobs loaded.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <small class="text-muted">Active tasks reported by watcher status.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Results -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Recent Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Job ID</th>
+                                        <th>Type</th>
+                                        <th>Label</th>
+                                        <th>State</th>
+                                        <th>Finished</th>
+                                        <th>Duration</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-results-body">
+                                    <tr><td colspan="6" class="text-muted text-center">No results loaded.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <small class="text-muted">Click a job to open full result details and audit trail.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Job Details Modal -->
+        <div class="modal fade" id="jobDetailsModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Job Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <h6>Job Info</h6>
+                                <div id="job-details-basic" class="small text-muted">Select a job to view details.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Audit Trail</h6>
+                                <div id="job-details-audit" class="small text-muted">Audit entries will appear here.</div>
+                            </div>
+                            <div class="col-12">
+                                <h6>Result Data</h6>
+                                <pre id="job-details-result" class="bg-light p-3 rounded small">No result loaded.</pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- System Overview Section -->
         <div class="row">
             <div class="col-md-6 mb-4">
