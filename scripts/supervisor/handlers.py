@@ -324,10 +324,16 @@ def update_code_deps(
         )
 
         if pip_result['returncode'] != 0:
-            logger.warning(
-                f"pip install warning: {pip_result['stderr']}"
+            logger.error(
+                f"pip install failed: {pip_result['stderr']}"
             )
-            # Continue anyway (some warnings are acceptable)
+            # Try to restart watcher despite failure
+            start_watcher(worker_id)
+            return {
+                'success': False,
+                'error': f"pip install failed: {pip_result['stderr']}",
+                'output': pip_result['stdout'],
+            }
 
         # Get new commit after update
         after_commit = get_current_commit(repo_dir)

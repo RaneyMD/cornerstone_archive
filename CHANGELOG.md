@@ -36,6 +36,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Path where Synology Cloud Sync syncs supervisor results from Worker_Outbox
   - Configurable via environment variable: `CONSOLE_INBOX`
 
+### Changed
+
+#### Supervisor Code Update Dependencies Handler
+- **pip install failures now fail the entire operation**
+  - Previously: pip install errors were logged as warnings and operation continued as success
+  - Now: pip install errors cause operation to fail with error message
+  - Error message format: `"pip install failed: {stderr}"`
+  - Watcher is still attempted to be restarted even on pip failure
+  - Ensures console accurately tracks failed dependency updates
+
 ### Fixed
 
 #### Supervisor and Watcher Logging with Hourly Rotation
