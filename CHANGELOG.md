@@ -332,6 +332,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Console Flag and Result Management System
+- **Flag creation and tracking** (`console/flag_manager.py`)
+  - `FlagManager` class: Create supervisor control and job task flags
+  - Atomic flag writing to Worker_Inbox with JSON validation
+  - Automatic task_id generation for console-created jobs
+  - Database job record creation with audit trail support
+  - Label validation and storage for operational context
+
+- **Result file processing** (`console/result_processor.py`)
+  - `ResultProcessor` class: Process result files from workers and supervisor
+  - Map console task_id to job records for status updates
+  - Handle both job results (success/error) and supervisor heartbeats
+  - Archive processed results for audit trail
+  - Support cleanup with optional archival
+
+- **Flag utilities and validation** (`console/flag_utils.py`)
+  - Task ID generation with console prefix
+  - Label validation (100 chars, alphanumeric+hyphens/underscores/spaces)
+  - Handler validation against allowed lists
+  - Atomic file writing with temp-then-replace pattern
+  - Supervisor handler whitelist: pause_watcher, resume_watcher, restart_watcher, update_code, update_code_deps, rollback_code, diagnostics, verify_db
+  - Job handler whitelist: acquire_source
+
+- **Web Console APIs for flag/result management**
+  - `POST /api/create_flag.php` — Create supervisor control or job task flags
+    - Request body: flag_type, handler, worker_id, label (optional), params (optional)
+    - Response: success flag with task_id for tracking, or error message
+  - `GET /api/get_job_status.php` — Query job/task status by ID
+    - Parameters: task_id or job_id
+    - Response: job state, created_at, updated_at, status_summary
+  - `GET /api/list_jobs.php` — List jobs with filtering
+    - Parameters: state (queued/running/succeeded/failed), limit, offset
+    - Response: paginated job list with metadata
+  - `GET /api/get_audit_log.php` — Retrieve audit trail
+    - Parameters: target_id, action, limit, offset
+    - Response: audit entries with actor, action, timestamp, details
+
+- **Unit tests for console system**
+  - `tests/unit/test_flag_manager.py` — FlagManager flag creation, validation, error handling
+  - `tests/unit/test_result_processor.py` — ResultProcessor result processing and job updates
+
+#### Database Schema
+- **Add task_id field to jobs_t** (`004_add_task_id_to_jobs.sql`)
+  - New `task_id` VARCHAR(128) column for console task tracking
+  - Indexed for efficient result processing lookups
+  - Enables mapping between console-generated task IDs and job records
+
 #### Database Migration Runner
 - **Migration execution and auditing** (`scripts/database/apply_migration.py`)
   - Read and execute SQL migrations from `database/migrations/` directory
