@@ -332,6 +332,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Database Migration Runner
+- **Migration execution and auditing** (`scripts/database/apply_migration.py`)
+  - Read and execute SQL migrations from `database/migrations/` directory
+  - Parse SQL statements with comment handling (single-line `--` and multi-line `/* */`)
+  - Automatically detect admin credentials from environment variables
+  - Use admin user for schema modifications (ALTER TABLE, ADD COLUMN)
+  - Record migration metadata in `database_migrations_t`:
+    - filename, checksum (SHA256), version number
+    - applied_at (UTC timestamp), applied_by, status, error_message
+  - Support individual migration execution or full batch
+  - Idempotent: skip if migration already applied with 'applied' status
+  - Record errors for audit trail and debugging
+
 #### Job Task Labels for Audit Trail
 - **Label field in jobs_t table** (`003_add_label_fields_to_jobs_and_workers.sql`)
   - Optional VARCHAR(100) label column for user-provided task descriptions
