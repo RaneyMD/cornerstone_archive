@@ -332,6 +332,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Dashboard Control Panel Functionality
+- **Control flag button event handlers** (`assets/js/dashboard.js`)
+  - Wire up all control action buttons (Pause, Resume, Restart, Update Code, etc.)
+  - Implement `createSupervisorFlag()` function to call `/api/create_flag.php`
+  - Auto-refresh dashboard after successful flag creation
+  - Clear label field after flag creation
+  - Show success message with task_id for audit tracking
+  - Proper error handling with user-friendly messages
+  - Support for special parameters (e.g., rollback commits count)
+
 #### Console Flag and Result Management System
 - **Flag creation and tracking** (`console/flag_manager.py`)
   - `FlagManager` class: Create supervisor control and job task flags

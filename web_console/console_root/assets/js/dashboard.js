@@ -15,6 +15,18 @@ $(document).ready(function() {
         refreshDashboard();
     });
 
+    // Control flag buttons
+    $(document).on('click', '#control-flag-form button[data-action]', function(e) {
+        e.preventDefault();
+        const $btn = $(this);
+        const action = $btn.data('action');
+        const worker_id = $('#control-worker').val();
+        const label = $('#control-label').val() || null;
+        const commits = $('#control-commits').val() || 1;
+
+        createSupervisorFlag(action, worker_id, label, commits, $btn);
+    });
+
     // Watcher control buttons
     $(document).on('click', '.btn-restart-watcher', function() {
         const $btn = $(this);
@@ -349,6 +361,60 @@ function refreshTaskCounts() {
         },
         error: function() {
             console.error('Failed to fetch task count');
+        }
+    });
+}
+
+/**
+ * Create a supervisor control flag
+ */
+function createSupervisorFlag(action, worker_id, label, commits, $btn) {
+    disableButton($btn);
+
+    // Build params based on action
+    const params = {};
+    if (action === 'rollback_code') {
+        params.commits = parseInt(commits);
+    }
+
+    const payload = {
+        flag_type: 'supervisor_control',
+        handler: action,
+        worker_id: worker_id,
+        label: label,
+        params: params
+    };
+
+    $.ajax({
+        url: '/api/create_flag.php',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(payload),
+        dataType: 'json',
+        timeout: 10000,
+        success: function(data) {
+            if (data.success) {
+                showSuccess(`Control flag created: ${action} for ${worker_id}` +
+                    (label ? ` (${label})` : '') +
+                    ` [Task: ${data.task_id}]`);
+                // Clear label after successful creation
+                $('#control-label').val('');
+                // Refresh dashboard
+                setTimeout(refreshDashboard, 500);
+            } else {
+                showError(data.error || 'Failed to create flag');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Create flag API error:', status, error);
+            let errorMsg = 'Failed to create control flag';
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMsg = xhr.responseJSON.error;
+            }
+            showError(errorMsg);
+        },
+        complete: function() {
+            enableButton($btn);
         }
     });
 }
