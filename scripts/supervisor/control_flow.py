@@ -2,8 +2,9 @@
 
 import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from scripts.common.spec_db import Database
 from scripts.common.spec_nas import NasManager
@@ -137,6 +138,21 @@ def check_control_flags(
                 # Execute handler
                 result = handler_func(nas, db, worker_id, task)
 
+                # Write result file to Worker_Outbox for console to process
+                task_id = task.get('task_id')
+                write_result_file(
+                    nas,
+                    worker_id,
+                    task_id=task_id,
+                    handler=handler_name,
+                    success=result.get('success', False),
+                    error=result.get('error'),
+                    result_details={
+                        'message': result.get('message', ''),
+                        'label': task.get('label'),
+                    }
+                )
+
                 # Record action
                 label = task.get('label', '')
                 action_desc = f"{handler_name}"
@@ -179,3 +195,74 @@ def check_control_flags(
     except Exception as e:
         logger.error(f"Error processing control flags: {e}")
         return actions_taken
+
+
+def write_result_file(
+    nas: NasManager,
+    worker_id: str,
+    task_id: Optional[str] = None,
+    handler: Optional[str] = None,
+    success: bool = False,
+    error: Optional[str] = None,
+    result_details: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """
+    Write result file to Worker_Outbox for console to process.
+
+    Synology Cloud Sync monitors Worker_Outbox and syncs to console_inbox.
+
+    Result file format: supervisor_result_{handler}_{task_id}_{timestamp}.json
+
+    Args:
+        nas: NasManager instance
+        worker_id: Watcher identifier
+        task_id: Task ID from control flag
+        handler: Handler name (pause_watcher, etc.)
+        success: Whether handler succeeded
+        error: Error message if failed
+        result_details: Additional result data from handler
+
+    Returns:
+        True if result file written successfully, False otherwise
+    """
+    try:
+        outbox_path = nas.get_worker_outbox_path()
+        outbox_path.mkdir(parents=True, exist_ok=True)
+
+        # Build result file name
+        timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
+        safe_handler = handler or 'unknown'
+        safe_task = task_id or 'notask'
+        result_filename = f"supervisor_result_{safe_handler}_{safe_task}_{timestamp}.json"
+        result_file = outbox_path / result_filename
+
+        # Build result payload
+        result_payload = {
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'supervisor_id': f'supervisor_{worker_id}',
+            'worker_id': worker_id,
+            'task_id': task_id,
+            'handler': handler,
+            'success': success,
+            'error': error,
+        }
+
+        # Include additional details if provided
+        if result_details:
+            result_payload['details'] = result_details
+
+        # Write result file atomically (tmp-then-replace)
+        tmp_path = result_file.with_suffix('.tmp')
+        with open(tmp_path, 'w', encoding='utf-8') as f:
+            json.dump(result_payload, f, indent=2)
+
+        tmp_path.replace(result_file)
+        logger.info(
+            f"Result file written: {result_filename} "
+            f"(success={success}, handler={handler})"
+        )
+        return True
+
+    except Exception as e:
+        logger.error(f"Error writing result file: {e}")
+        return False

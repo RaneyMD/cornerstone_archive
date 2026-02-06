@@ -48,10 +48,12 @@ define('NAS_WORKER_INBOX', NAS_LOGS . '\\Worker_Inbox');
 define('NAS_WORKER_OUTBOX', NAS_LOGS . '\\Worker_Outbox');
 
 // ============================================================================
-// CONSOLE FLAG OUTPUT (Control flags destination)
+// CONSOLE FLAG OUTPUT AND RESULT INPUT
 // ============================================================================
-// Where supervisor control flags are written (points to NAS Worker_Outbox)
-define('CONSOLE_OUTBOX', NAS_WORKER_OUTBOX);
+// Where console writes control flags (Synology Cloud Sync pulls to Worker_Inbox)
+define('CONSOLE_OUTBOX', getenv('CONSOLE_OUTBOX') ?: '/home1/raneywor/cornerstone_archive_support/console_outbox');
+// Where console reads supervisor results (Synology Cloud Sync pushes from Worker_Outbox)
+define('CONSOLE_INBOX', getenv('CONSOLE_INBOX') ?: '/home1/raneywor/cornerstone_archive_support/console_inbox');
 
 // ============================================================================
 // SESSION CONFIGURATION

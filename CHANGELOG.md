@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Supervisor Result Writing and Console Processing
+- **Supervisor writes control flag results to Worker_Outbox**
+  - New function: `write_result_file()` in supervisor/control_flow.py
+  - Writes result JSON file after each handler execution (pause, resume, restart, code update, rollback, diagnostics, verify_db)
+  - Result file format: `supervisor_result_{handler}_{task_id}_{timestamp}.json`
+  - Includes: task_id, handler name, success status, error message, timestamp, additional details
+  - File written atomically (tmp-then-replace) to Worker_Outbox
+  - Synology Cloud Sync monitors Worker_Outbox and syncs results to console_inbox
+
+- **Console API endpoint to process results**
+  - New endpoint: `/api/process_results.php`
+  - Processes pending result files from console_inbox
+  - Matches task_id to job_id in jobs_t table
+  - Updates job status: `state` = 'succeeded' or 'failed'
+  - Sets `finished_at` and `last_error` on job record
+  - Inserts audit log entry with action 'JOB_COMPLETED'
+  - Cleans up processed result files
+
+- **Added CONSOLE_INBOX configuration**
+  - New config constant: `CONSOLE_INBOX` (HostGator path)
+  - Path where Synology Cloud Sync syncs supervisor results from Worker_Outbox
+  - Configurable via environment variable: `CONSOLE_INBOX`
+
 ### Fixed
 
 #### Supervisor and Watcher Logging with Hourly Rotation
