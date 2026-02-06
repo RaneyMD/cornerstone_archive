@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+#### Supervisor Control Handlers - Audit Logging
+- **Fixed database method calls in all supervisor handlers**
+  - Issue: All control handlers (pause_watcher, resume_watcher, update_code, update_code_deps, restart_watcher, rollback_code) were calling non-existent `db.insert()` method
+  - Error message: `'Database' object has no attribute 'insert'`
+  - Root cause: Handlers were written for console's Database class but supervisor uses different Database class from scripts.common.spec_db which only has `execute()` method
+  - Solution: Replaced `db.insert()` calls with `db.execute()` using SQL INSERT statements with parameter tuples
+  - Impact: Supervisor handlers still functioned (pause flag was created and respected), but audit logging was failing
+  - Note: Pause mechanism was working despite audit errors - pause flag persisted and supervisor respected it on subsequent runs
+
 ### Added
 
 #### Web Console - Authentication Foundation
@@ -429,11 +440,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Console Control Flag Path Configuration
 - **Define CONSOLE_OUTBOX for flag creation** (`config/config.example.php`)
   - CONSOLE_OUTBOX was undefined, causing create_flag.php to fail
-  - Flags are now written to NAS_WORKER_OUTBOX (correct destination)
+  - Flags must be written to NAS_WORKER_INBOX (where supervisor reads them)
   - All supervisor control buttons now functional (Pause, Resume, Restart, etc.)
   - **Manual step required**: Update your local `config.php` to add:
     ```php
-    define('CONSOLE_OUTBOX', NAS_WORKER_OUTBOX);
+    define('CONSOLE_OUTBOX', NAS_WORKER_INBOX);
     ```
 
 #### Web Console - Timezone Handling

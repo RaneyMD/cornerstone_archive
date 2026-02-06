@@ -63,13 +63,17 @@ def pause_watcher(
         if label:
             audit_details += f" (label: {label})"
 
-        db.insert('audit_log_t', {
-            'action': 'PAUSE_WATCHER',
-            'username': 'supervisor',
-            'ip_address': 'internal',
-            'details': audit_details,
-            'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-        })
+        sql = """
+            INSERT INTO audit_log_t (action, username, ip_address, details, timestamp)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        db.execute(sql, (
+            'PAUSE_WATCHER',
+            'supervisor',
+            'internal',
+            audit_details,
+            datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+        ))
 
         logger.info(f"Watcher {worker_id} paused. {audit_details}")
         return {
@@ -122,13 +126,17 @@ def resume_watcher(
         if label:
             audit_details += f" (label: {label})"
 
-        db.insert('audit_log_t', {
-            'action': 'RESUME_WATCHER',
-            'username': 'supervisor',
-            'ip_address': 'internal',
-            'details': audit_details,
-            'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-        })
+        sql = """
+            INSERT INTO audit_log_t (action, username, ip_address, details, timestamp)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        db.execute(sql, (
+            'RESUME_WATCHER',
+            'supervisor',
+            'internal',
+            audit_details,
+            datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+        ))
 
         logger.info(f"Watcher {worker_id} resumed. {audit_details}")
         return {
@@ -214,13 +222,17 @@ def update_code(
         if label:
             audit_details += f" (label: {label})"
 
-        db.insert('audit_log_t', {
-            'action': 'UPDATE_CODE',
-            'username': 'supervisor',
-            'ip_address': 'internal',
-            'details': audit_details,
-            'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-        })
+        sql = """
+            INSERT INTO audit_log_t (action, username, ip_address, details, timestamp)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        db.execute(sql, (
+            'UPDATE_CODE',
+            'supervisor',
+            'internal',
+            audit_details,
+            datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+        ))
 
         logger.info(f"Code updated. {audit_details}")
         return {
@@ -332,13 +344,17 @@ def update_code_deps(
         if label:
             audit_details += f" (label: {label})"
 
-        db.insert('audit_log_t', {
-            'action': 'UPDATE_CODE_DEPS',
-            'username': 'supervisor',
-            'ip_address': 'internal',
-            'details': audit_details,
-            'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-        })
+        sql = """
+            INSERT INTO audit_log_t (action, username, ip_address, details, timestamp)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        db.execute(sql, (
+            'UPDATE_CODE_DEPS',
+            'supervisor',
+            'internal',
+            audit_details,
+            datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+        ))
 
         logger.info(f"Code + deps updated. {audit_details}")
         return {
@@ -410,13 +426,17 @@ def restart_watcher(
         if label:
             audit_details += f" (label: {label})"
 
-        db.insert('audit_log_t', {
-            'action': 'RESTART_WATCHER',
-            'username': 'supervisor',
-            'ip_address': 'internal',
-            'details': audit_details,
-            'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-        })
+        sql = """
+            INSERT INTO audit_log_t (action, username, ip_address, details, timestamp)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        db.execute(sql, (
+            'RESTART_WATCHER',
+            'supervisor',
+            'internal',
+            audit_details,
+            datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+        ))
 
         logger.info(f"Watcher {worker_id} restarted. {audit_details}")
         return {
@@ -531,13 +551,17 @@ def rollback_code(
         if label:
             audit_details['label'] = label
 
-        db.insert('audit_log_t', {
-            'action': 'ROLLBACK_CODE',
-            'username': 'supervisor',
-            'ip_address': 'internal',
-            'details': json.dumps(audit_details),
-            'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-        })
+        sql = """
+            INSERT INTO audit_log_t (action, username, ip_address, details, timestamp)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        db.execute(sql, (
+            'ROLLBACK_CODE',
+            'supervisor',
+            'internal',
+            json.dumps(audit_details),
+            datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+        ))
 
         logger.info(f"Rollback complete. {len(reverted_commits)} commits reverted.")
 
