@@ -33,6 +33,10 @@ class Database {
                     PDO::ATTR_EMULATE_PREPARES => false,
                 ]
             );
+
+            // Set session timezone to UTC for all timestamp operations
+            $this->pdo->exec("SET SESSION time_zone = '+00:00'");
+
             return true;
         } catch (PDOException $e) {
             error_log("Database connection error: " . $e->getMessage());
@@ -67,6 +71,18 @@ class Database {
             error_log("Query error: " . $e->getMessage());
             throw $e;
         }
+    }
+
+    /**
+     * Execute a raw SQL statement (alias for query)
+     * Supports both INSERT/UPDATE/DELETE and SELECT operations
+     *
+     * @param string $sql SQL query with ? placeholders
+     * @param array $params Values to bind to placeholders
+     * @return PDOStatement
+     */
+    public function execute($sql, $params = []) {
+        return $this->query($sql, $params);
     }
 
     /**

@@ -16,13 +16,19 @@ $username = $_SESSION['username'] ?? 'unknown';
 try {
     $db = new Database(DB_HOST, DB_USER, DB_PASS, DB_NAME);
     $db->connect();
-    $db->insert('audit_log_t', [
-        'action' => 'LOGOUT',
-        'username' => $username,
-        'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
-        'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown',
-        'timestamp' => date('Y-m-d H:i:s')
-    ]);
+    $db->execute(
+        "INSERT INTO audit_log_t (actor, action, target_type, target_id, details_json) VALUES (?, ?, ?, ?, ?)",
+        [
+            $username,
+            'LOGOUT',
+            'user_session',
+            session_id(),
+            json_encode([
+                'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown',
+            ])
+        ]
+    );
 } catch (Exception $e) {
     error_log("Audit log failed: " . $e->getMessage());
     // Continue anyway - don't block logout

@@ -107,6 +107,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Impact: Supervisor handlers still functioned (pause flag was created and respected), but audit logging was failing
   - Note: Pause mechanism was working despite audit errors - pause flag persisted and supervisor respected it on subsequent runs
 
+#### Console Timestamp Timezone Consistency
+- **Fixed console writing timestamps in server local timezone instead of UTC**
+  - Issue: Console was writing all database timestamps in Central Time (UTC-6) instead of UTC
+  - Root cause: HostGator server runs in Central Time, PHP date() uses server timezone, MySQL NOW() follows session timezone
+  - Solution implemented:
+    1. Added `date_default_timezone_set('UTC')` to config.example.php — All PHP operations use UTC
+    2. Added `SET SESSION time_zone = '+00:00'` to Database->connect() — All MySQL NOW() calls return UTC
+    3. Fixed auth/login.php and auth/logout.php — Migrated to new audit schema with database-managed timestamps
+    4. Added `execute()` method to Database class — Supports raw SQL execution
+  - Impact: All console timestamps now match supervisor and watcher (UTC), ensuring consistent logging across system
+  - Affected operations: User login/logout, job creation, result processing
+
 ### Added
 
 #### Web Console - Authentication Foundation

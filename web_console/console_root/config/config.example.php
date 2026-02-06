@@ -75,3 +75,10 @@ define('APP_NAME', 'Cornerstone Archive Console');
 define('APP_VERSION', '1.0.0');
 define('DEBUG_MODE', getenv('DEBUG_MODE') ?: false);
 define('LOG_FILE', getenv('LOG_FILE') ?: '/tmp/console.log');
+
+// ============================================================================
+// TIMEZONE CONFIGURATION
+// ============================================================================
+// All database timestamps must be in UTC (no conversion)
+// Set PHP default timezone to UTC for all date/time operations
+date_default_timezone_set('UTC');
