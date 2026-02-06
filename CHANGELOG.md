@@ -426,6 +426,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Console Control Flag Path Configuration
+- **Define CONSOLE_OUTBOX for flag creation** (`config/config.example.php`)
+  - CONSOLE_OUTBOX was undefined, causing create_flag.php to fail
+  - Flags are now written to NAS_WORKER_OUTBOX (correct destination)
+  - All supervisor control buttons now functional (Pause, Resume, Restart, etc.)
+  - **Manual step required**: Update your local `config.php` to add:
+    ```php
+    define('CONSOLE_OUTBOX', NAS_WORKER_OUTBOX);
+    ```
+
 #### Web Console - Timezone Handling
 - **Supervisor heartbeat timestamp calculation** (`api/supervisor_heartbeat.php`)
   - Fixed: Supervisor heartbeat was showing negative time (in future) due to UTC/local timezone mismatch

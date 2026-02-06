@@ -48,11 +48,10 @@ define('NAS_WORKER_INBOX', NAS_LOGS . '\\Worker_Inbox');
 define('NAS_WORKER_OUTBOX', NAS_LOGS . '\\Worker_Outbox');
 
 // ============================================================================
-// CONSOLE SYNC PATHS (Console host)
+// CONSOLE FLAG OUTPUT (Control flags destination)
 // ============================================================================
-define('CONSOLE_OUTBOX', getenv('CONSOLE_OUTBOX') ?: '/path/to/Console_Outbox');
-define('CONSOLE_INBOX', getenv('CONSOLE_INBOX') ?: '/path/to/Console_Inbox');
-define('CONSOLE_RESULTS_ARCHIVE', getenv('CONSOLE_RESULTS_ARCHIVE') ?: '/path/to/Console_Results_Archive');
+// Where supervisor control flags are written (points to NAS Worker_Outbox)
+define('CONSOLE_OUTBOX', NAS_WORKER_OUTBOX);
 
 // ============================================================================
 // SESSION CONFIGURATION
