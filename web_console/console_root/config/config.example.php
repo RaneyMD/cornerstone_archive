@@ -48,6 +48,13 @@ define('NAS_WORKER_INBOX', NAS_LOGS . '\\Worker_Inbox');
 define('NAS_WORKER_OUTBOX', NAS_LOGS . '\\Worker_Outbox');
 
 // ============================================================================
+// CONSOLE SYNC PATHS (Console host)
+// ============================================================================
+define('CONSOLE_OUTBOX', getenv('CONSOLE_OUTBOX') ?: '/path/to/Console_Outbox');
+define('CONSOLE_INBOX', getenv('CONSOLE_INBOX') ?: '/path/to/Console_Inbox');
+define('CONSOLE_RESULTS_ARCHIVE', getenv('CONSOLE_RESULTS_ARCHIVE') ?: '/path/to/Console_Results_Archive');
+
+// ============================================================================
 // SESSION CONFIGURATION
 // ============================================================================
 define('SESSION_TIMEOUT', 3600);  // 1 hour in seconds

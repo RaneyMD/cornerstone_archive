@@ -26,3 +26,10 @@ watcher:
   max_concurrent_tasks: 1
   scan_interval_seconds: 10
   heartbeat_interval_seconds: 30
+
+console:
+  inbox_path: /path/to/Console_Inbox
+  outbox_path: /path/to/Console_Outbox
+  result_poll_interval_seconds: 5
+  cleanup_processed_results: false
+  archive_path: /path/to/Console_Results_Archive
