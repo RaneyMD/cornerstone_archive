@@ -16,7 +16,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, Optional, Any
-from logging.handlers import RotatingFileHandler
+from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 
 from scripts.common.spec_config import load_config, ConfigError
 from scripts.common.spec_nas import NasManager, NasError
@@ -736,10 +736,28 @@ def main(args: list = None) -> int:
         log_format = "[%(asctime)s] [%(levelname)s] %(message)s"
         log_level = logging.INFO
 
-        # File handler (rotating)
-        fh = RotatingFileHandler(
-            log_file, maxBytes=10 * 1024 * 1024, backupCount=30
+        # File handler (rotating hourly, stores archives in date subfolders)
+        # Using 'H' interval for hourly rotation, keeping 24 backups
+        fh = TimedRotatingFileHandler(
+            log_file,
+            when='H',  # Rotate at hour boundary
+            interval=1,  # Every 1 hour
+            backupCount=24,  # Keep 24 hours of logs
         )
+
+        # Custom naming: archives go to YYYY-MM-DD subfolder as watcher.log_HH
+        def rotation_filename(default_name):
+            # default_name format: watcher.log.2026-02-06_23
+            # Convert to: YYYY-MM-DD/watcher_HH.log
+            parts = default_name.split('.')
+            if len(parts) >= 3:
+                date_hour = parts[-1]  # e.g., "2026-02-06_23"
+                date_part = date_hour.split('_')[0]  # e.g., "2026-02-06"
+                hour_part = date_hour.split('_')[1] if '_' in date_hour else '00'  # e.g., "23"
+                return str(log_file.parent / date_part / f"watcher_{hour_part}.log")
+            return default_name
+
+        fh.namer = rotation_filename
         fh.setLevel(log_level)
         fh.setFormatter(logging.Formatter(log_format))
 

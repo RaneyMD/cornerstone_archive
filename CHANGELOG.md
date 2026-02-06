@@ -9,17 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-#### Supervisor Logging Path and Rotation
+#### Supervisor and Watcher Logging with Hourly Rotation
 - **Fixed supervisor.log to write to NAS with hourly rotation and date-based organization**
   - Issue: Supervisor was writing logs to local `C:\cornerstone_archive\05_LOGS\supervisor.log` instead of NAS
   - Root cause: Path calculation in main() was using repo root instead of NAS path from config
   - Solution: Load config and NasManager early in main() to get correct NAS log path before setting up logging
   - Now logs correctly to: `\\RaneyHQ\Michael\02_Projects\Cornerstone_Archive\05_LOGS\supervisor.log`
-  - Added hourly rotation to keep logs manageable:
-    - Active log: `supervisor.log` (current hour)
-    - Archived logs: `YYYY-MM-DD/supervisor_HH.log` (past hours, organized by date)
+
+- **Updated watcher.log to use hourly rotation (matching supervisor)**
+  - Changed from size-based rotation (10MB per file, 30 backups) to hourly rotation
+  - Log organization:
+    - Active log: `watcher.log` (current hour)
+    - Archived logs: `YYYY-MM-DD/watcher_HH.log` (past hours, organized by date)
     - Keeps 24 hours of history before cleanup
-  - Matches watcher.log behavior which correctly writes to NAS
+  - Provides consistent log organization across both processes
+  - Easier to find logs for specific hours/days without huge active log files
 
 #### Supervisor Control Handlers - Audit Logging
 - **Fixed database method calls in all supervisor handlers**
