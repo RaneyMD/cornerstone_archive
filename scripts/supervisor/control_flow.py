@@ -140,13 +140,17 @@ def check_control_flags(
 
                 # Write result file to Worker_Outbox for console to process
                 task_id = task.get('task_id')
+                job_id = task.get('job_id')
+                log_path = str(nas.get_logs_path() / 'supervisor.log')
                 write_result_file(
                     nas,
                     worker_id,
                     task_id=task_id,
+                    job_id=job_id,
                     handler=handler_name,
                     success=result.get('success', False),
                     error=result.get('error'),
+                    log_path=log_path,
                     result_details={
                         'message': result.get('message', ''),
                         'label': task.get('label'),
@@ -186,13 +190,17 @@ def check_control_flags(
 
                 # Write result file for exception case
                 task_id = task.get('task_id')
+                job_id = task.get('job_id')
+                log_path = str(nas.get_logs_path() / 'supervisor.log')
                 write_result_file(
                     nas,
                     worker_id,
                     task_id=task_id,
+                    job_id=job_id,
                     handler=handler_name,
                     success=False,
                     error=str(e),
+                    log_path=log_path,
                     result_details={
                         'exception': True,
                         'label': task.get('label'),
@@ -216,9 +224,11 @@ def write_result_file(
     nas: NasManager,
     worker_id: str,
     task_id: Optional[str] = None,
+    job_id: Optional[int] = None,
     handler: Optional[str] = None,
     success: bool = False,
     error: Optional[str] = None,
+    log_path: Optional[str] = None,
     result_details: Optional[Dict[str, Any]] = None,
 ) -> bool:
     """
@@ -232,9 +242,11 @@ def write_result_file(
         nas: NasManager instance
         worker_id: Watcher identifier
         task_id: Task ID from control flag
+        job_id: Job ID for direct correlation
         handler: Handler name (pause_watcher, etc.)
         success: Whether handler succeeded
         error: Error message if failed
+        log_path: Path to supervisor log file
         result_details: Additional result data from handler
 
     Returns:
@@ -257,9 +269,11 @@ def write_result_file(
             'supervisor_id': f'supervisor_{worker_id}',
             'worker_id': worker_id,
             'task_id': task_id,
+            'job_id': job_id,
             'handler': handler,
             'success': success,
             'error': error,
+            'log_path': log_path,
         }
 
         # Include additional details if provided

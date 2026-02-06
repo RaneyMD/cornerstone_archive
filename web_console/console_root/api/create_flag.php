@@ -112,6 +112,7 @@ try {
 
     $flag_data = [
         'task_id' => $task_id,
+        'job_id' => $job_id,
         'handler' => $handler,
         'label' => $label,
         'params' => $params

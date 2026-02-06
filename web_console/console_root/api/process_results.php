@@ -62,45 +62,60 @@ function process_result_file($filepath, $db) {
     }
 
     $task_id = $data['task_id'] ?? null;
+    $job_id = $data['job_id'] ?? null;
     $handler = $data['handler'] ?? null;
     $success = $data['success'] ?? false;
     $error = $data['error'] ?? null;
+    $log_path = $data['log_path'] ?? null;
+    $details = $data['details'] ?? [];
 
-    // Find job by task_id
-    $sql = "SELECT job_id FROM jobs_t WHERE task_id = ?";
-    $result = $db->fetchAll($sql, [$task_id]);
+    // Find job by task_id or job_id
+    if ($job_id) {
+        $sql = "SELECT job_id FROM jobs_t WHERE job_id = ?";
+        $result = $db->fetchAll($sql, [$job_id]);
+    } else {
+        $sql = "SELECT job_id FROM jobs_t WHERE task_id = ?";
+        $result = $db->fetchAll($sql, [$task_id]);
+    }
 
     if (empty($result)) {
         return [
             'task_id' => $task_id,
+            'job_id' => $job_id,
             'status' => 'not_found',
-            'message' => 'Job not found for task_id',
+            'message' => 'Job not found',
         ];
     }
 
     $job_id = $result[0]['job_id'];
 
-    // Update job status
+    // Update job status with all available fields
     $state = $success ? 'succeeded' : 'failed';
-    $sql = "UPDATE jobs_t SET state = ?, finished_at = NOW(), last_error = ? WHERE job_id = ?";
-    $db->execute($sql, [$state, $error, $job_id]);
+    $sql = "UPDATE jobs_t SET state = ?, started_at = COALESCE(started_at, NOW()), finished_at = NOW(), last_error = ?, log_path = ?, attempts = attempts + 1 WHERE job_id = ?";
+    $db->execute($sql, [$state, $error, $log_path, $job_id]);
 
     // Record completion in audit log
     $sql = "INSERT INTO audit_log_t (actor, action, target_type, target_id, details_json)
             VALUES (?, ?, ?, ?, ?)";
-    $details = json_encode([
+    $audit_details = [
         'success' => $success,
         'task_id' => $task_id,
+        'job_id' => $job_id,
         'handler' => $handler,
         'error' => $error,
+        'log_path' => $log_path,
         'result_file' => basename($filepath),
-    ]);
+    ];
+    // Include handler-specific details
+    if (!empty($details)) {
+        $audit_details['handler_details'] = $details;
+    }
     $db->execute($sql, [
         'result_processor',
         'JOB_COMPLETED',
         'supervisor_control',
         (string)$job_id,
-        $details
+        json_encode($audit_details)
     ]);
 
     return [

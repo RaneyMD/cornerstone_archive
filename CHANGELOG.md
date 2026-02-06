@@ -38,6 +38,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+#### Enhanced Job Tracking with Complete Metadata
+- **Embedded job_id in control flags**
+  - Console now includes job_id when creating control flags for supervisor
+  - Enables direct job correlation without task_id lookup
+
+- **Result files now include complete metadata**
+  - job_id: For direct correlation with jobs_t
+  - log_path: Path to supervisor log file for tracing
+  - Handler-specific details preserved from handler response
+
+- **Supervisor tracks job context**
+  - Reads job_id from control flag
+  - Includes job_id and log_path in result files
+
+- **Console captures all completion data**
+  - Sets started_at: When job processing begins (using COALESCE to preserve first start time)
+  - Sets finished_at: When job processing ends
+  - Sets last_error: Error message if failed
+  - Sets log_path: Path to supervisor log for traceability
+  - Increments attempts: Counter for job attempt tracking
+  - Preserves handler-specific details: before/after commits, messages, etc.
+
+- **Improved audit trail**
+  - Audit entries now include job_id, log_path, and handler details
+  - Complete chain: CREATE_FLAG → job created → JOB_COMPLETED with full context
+
 #### Supervisor Code Update Dependencies Handler
 - **pip install failures now fail the entire operation**
   - Previously: pip install errors were logged as warnings and operation continued as success
