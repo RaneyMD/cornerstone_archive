@@ -72,7 +72,7 @@ def pause_watcher(
             details,
         ))
 
-        logger.info(f"Watcher {worker_id} paused. {audit_details}")
+        logger.info(f"Watcher {worker_id} paused" + (f" (label: {label})" if label else ""))
         return {
             'success': True,
             'message': f'Watcher {worker_id} paused',
@@ -132,7 +132,7 @@ def resume_watcher(
             details,
         ))
 
-        logger.info(f"Watcher {worker_id} resumed. {audit_details}")
+        logger.info(f"Watcher {worker_id} resumed" + (f" (label: {label})" if label else ""))
         return {
             'success': True,
             'message': f'Watcher {worker_id} resumed',
@@ -227,7 +227,7 @@ def update_code(
             details,
         ))
 
-        logger.info(f"Code updated. {audit_details}")
+        logger.info(f"Code updated from {before_commit} to {after_commit}" + (f" (label: {label})" if label else ""))
         return {
             'success': True,
             'message': f'Code updated: {before_commit} → {after_commit}',
@@ -354,7 +354,7 @@ def update_code_deps(
             details,
         ))
 
-        logger.info(f"Code + deps updated. {audit_details}")
+        logger.info(f"Code + deps updated from {before_commit} to {after_commit}" + (f" (label: {label})" if label else ""))
         return {
             'success': True,
             'message': f'Code + deps updated: {before_commit} → {after_commit}',
@@ -435,7 +435,7 @@ def restart_watcher(
             details,
         ))
 
-        logger.info(f"Watcher {worker_id} restarted. {audit_details}")
+        logger.info(f"Watcher {worker_id} restarted" + (f" (label: {label})" if label else ""))
         return {
             'success': True,
             'message': f'Watcher {worker_id} restarted',
