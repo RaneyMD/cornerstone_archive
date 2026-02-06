@@ -28,8 +28,8 @@ watcher:
   heartbeat_interval_seconds: 30
 
 console:
-  inbox_path: /path/to/Console_Inbox
-  outbox_path: /path/to/Console_Outbox
+  inbox_path: /home1/raneywor/cornerstone_archive_support/console_inbox
+  outbox_path: /home1/raneywor/cornerstone_archive_support/console_outbox
   result_poll_interval_seconds: 5
   cleanup_processed_results: false
-  archive_path: /path/to/Console_Results_Archive
+  archive_path: /home1/raneywor/cornerstone_archive_support/console_results_archive
