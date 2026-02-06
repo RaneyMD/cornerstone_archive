@@ -275,10 +275,14 @@ class Supervisor:
 
 def setup_logging(log_file: Path) -> None:
     """
-    Set up logging to file and console.
+    Set up logging to file and console with hourly rotation.
+
+    Creates hourly log files in YYYY-MM-DD subdirectories:
+    - Active: {log_dir}/supervisor.log
+    - Archives: {log_dir}/YYYY-MM-DD/supervisor_HH.log
 
     Args:
-        log_file: Path to log file
+        log_file: Path to log file (base name used for hourly logs)
     """
     log_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -286,12 +290,28 @@ def setup_logging(log_file: Path) -> None:
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
 
-    # File handler (rotating, 10MB max)
-    file_handler = logging.handlers.RotatingFileHandler(
+    # File handler (rotating hourly, stores archives in date subfolders)
+    # Using 'H' interval for hourly rotation, keeping 24 backups
+    file_handler = logging.handlers.TimedRotatingFileHandler(
         log_file,
-        maxBytes=10 * 1024 * 1024,  # 10MB
-        backupCount=5,
+        when='H',  # Rotate at hour boundary
+        interval=1,  # Every 1 hour
+        backupCount=24,  # Keep 24 hours of logs
     )
+
+    # Custom naming: archives go to YYYY-MM-DD subfolder as supervisor_HH.log
+    def rotation_filename(default_name):
+        # default_name format: supervisor.log.2026-02-06_23
+        # Convert to: YYYY-MM-DD/supervisor_HH.log
+        parts = default_name.split('.')
+        if len(parts) >= 3:
+            date_hour = parts[-1]  # e.g., "2026-02-06_23"
+            date_part = date_hour.split('_')[0]  # e.g., "2026-02-06"
+            hour_part = date_hour.split('_')[1] if '_' in date_hour else '00'  # e.g., "23"
+            return str(log_file.parent / date_part / f"supervisor_{hour_part}.log")
+        return default_name
+
+    file_handler.namer = rotation_filename
     file_handler.setLevel(logging.DEBUG)
 
     # Console handler
@@ -310,7 +330,7 @@ def setup_logging(log_file: Path) -> None:
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
 
-    logger.info("Logging initialized")
+    logger.info("Logging initialized (hourly rotation, archives in date subfolders)")
 
 
 def main(args: Optional[list] = None) -> int:
@@ -339,16 +359,17 @@ def main(args: Optional[list] = None) -> int:
 
     parsed_args = parser.parse_args(args)
 
-    # Determine log file
-    repo_root = Path(__file__).parent.parent.parent
-    log_dir = (
-        repo_root
-        / Path(parsed_args.config).parent.parent
-        / '05_LOGS'
-    )
-    log_file = log_dir / 'supervisor.log'
+    # Load config and get NAS log path
+    try:
+        config = load_supervisor_config(parsed_args.config)
+        nas = NasManager(config)
+        log_dir = nas.get_logs_path()
+        log_file = log_dir / 'supervisor.log'
+    except (ConfigError, NasError) as e:
+        print(f"Error loading config or NAS paths: {e}", file=sys.stderr)
+        return 1
 
-    # Set up logging
+    # Set up logging to NAS
     try:
         setup_logging(log_file)
     except Exception as e:
