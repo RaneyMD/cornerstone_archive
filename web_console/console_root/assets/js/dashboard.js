@@ -626,6 +626,25 @@ function showWatcherLogs(watcherId) {
 }
 
 /**
+ * Disable button and show spinner
+ */
+function disableButton($btn) {
+    $btn.prop('disabled', true);
+    $btn.data('original-html', $btn.html());
+    $btn.html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Loading...');
+}
+
+/**
+ * Enable button and hide spinner
+ */
+function enableButton($btn) {
+    $btn.prop('disabled', false);
+    if ($btn.data('original-html')) {
+        $btn.html($btn.data('original-html'));
+    }
+}
+
+/**
  * Update last refresh timestamp
  */
 function updateLastRefresh() {
