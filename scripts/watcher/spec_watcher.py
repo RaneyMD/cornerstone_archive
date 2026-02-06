@@ -327,9 +327,11 @@ class Watcher:
             task: Task dictionary with metadata
         """
         task_id = task.get("task_id", "unknown")
+        label = task.get("label", "")
+        task_label = f" ({label})" if label else ""
 
         try:
-            logger.info(f"[TASK:{task_id}] Processing")
+            logger.info(f"[TASK:{task_id}] Processing{task_label}")
 
             # Attempt to claim task
             if not self.claim_task(task_id):
@@ -345,13 +347,13 @@ class Watcher:
 
             # Record success
             self.record_result(task, result, success=True)
-            logger.info(f"[TASK:{task_id}] Completed successfully")
+            logger.info(f"[TASK:{task_id}] Completed successfully{task_label}")
 
         except TaskExecutionError as e:
-            logger.error(f"[TASK:{task_id}] Execution error: {e}")
+            logger.error(f"[TASK:{task_id}] Execution error{task_label}: {e}")
             self.record_result(task, {"error": str(e)}, success=False)
         except Exception as e:
-            logger.error(f"[TASK:{task_id}] Unexpected error: {e}", exc_info=True)
+            logger.error(f"[TASK:{task_id}] Unexpected error{task_label}: {e}", exc_info=True)
             self.record_result(task, {"error": str(e)}, success=False)
 
     def acquire_lock(self) -> Optional[Path]:
@@ -568,6 +570,7 @@ class Watcher:
             success: Whether task succeeded
         """
         task_id = task.get("task_id", "unknown")
+        label = task.get("label", "")
         processing_path = self.nas.get_logs_path() / "processing"
         outbox_path = self.nas.get_worker_outbox_path()
 
@@ -589,6 +592,7 @@ class Watcher:
 
             result_data = {
                 "task_id": task_id,
+                "label": label if label else None,
                 "success": success,
                 "completed_at": completed_at,
                 "result": result,
@@ -597,7 +601,8 @@ class Watcher:
                 json.dump(result_data, f, indent=2)
 
             status = "success" if success else "failure"
-            logger.debug(f"[TASK:{task_id}] Result ({status}) recorded to Worker_Outbox/")
+            task_label = f" ({label})" if label else ""
+            logger.debug(f"[TASK:{task_id}] Result ({status}){task_label} recorded to Worker_Outbox/")
 
         except Exception as e:
             logger.error(f"[TASK:{task_id}] Failed to record result: {e}")

@@ -332,6 +332,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Job Task Labels for Audit Trail
+- **Label field in jobs_t table** (`003_add_label_fields_to_jobs_and_workers.sql`)
+  - Optional VARCHAR(100) label column for user-provided task descriptions
+  - Example: "AA vol 1-2" for downloading American Architect volumes 1-2
+  - Indexed for efficient filtering and audit queries
+  - Stored in database for permanent audit trail
+
+- **Label logging in watcher** (`scripts/watcher/spec_watcher.py`)
+  - Extract label from task payload and include in all log messages
+  - Format: `[TASK:123] Processing (AA vol 1-2)`
+  - Recorded in result files (Worker_Outbox) for traceability
+  - Improves log readability and task identification
+
 #### Supervisor Auto-Restart
 - **Watcher auto-restart on stopped detection** (`scripts/supervisor/supervisor.py`)
   - Supervisor now automatically restarts stopped watchers on each run
