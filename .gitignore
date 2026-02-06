@@ -206,6 +206,7 @@ temp/
 
 # Logs and outputs
 logs/
+05_LOGS/
 *.log.*
 
 # OS and editor files
