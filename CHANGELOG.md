@@ -12,7 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Supervisor Result Writing and Console Processing
 - **Supervisor writes control flag results to Worker_Outbox**
   - New function: `write_result_file()` in supervisor/control_flow.py
-  - Writes result JSON file after each handler execution (pause, resume, restart, code update, rollback, diagnostics, verify_db)
+  - Writes result JSON file for ALL control flag handlers:
+    - pause_watcher, resume_watcher, restart_watcher
+    - update_code, update_code_deps, rollback_code
+    - diagnostics, verify_db
+  - Covers both success cases and exception cases
   - Result file format: `supervisor_result_{handler}_{task_id}_{timestamp}.json`
   - Includes: task_id, handler name, success status, error message, timestamp, additional details
   - File written atomically (tmp-then-replace) to Worker_Outbox

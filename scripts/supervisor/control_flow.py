@@ -184,6 +184,21 @@ def check_control_flags(
                     f"{handler_name} - EXCEPTION: {str(e)}"
                 )
 
+                # Write result file for exception case
+                task_id = task.get('task_id')
+                write_result_file(
+                    nas,
+                    worker_id,
+                    task_id=task_id,
+                    handler=handler_name,
+                    success=False,
+                    error=str(e),
+                    result_details={
+                        'exception': True,
+                        'label': task.get('label'),
+                    }
+                )
+
                 # Try to delete flag file even on error
                 try:
                     flag_file.unlink()
