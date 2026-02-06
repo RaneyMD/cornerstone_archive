@@ -48,6 +48,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Supervisor Handler Audit Logging Schema
+- **Fixed audit_log_t INSERT statements to use correct column names**
+  - Issue: Handlers were using non-existent columns: `username`, `ip_address`, `details`, `timestamp`
+  - Correct schema: `actor`, `action`, `target_type`, `target_id`, `details_json`, `created_at` (auto)
+  - Fixed all handlers: pause_watcher, resume_watcher, update_code, update_code_deps, restart_watcher, rollback_code
+  - Now properly records supervisor actions with target_type='supervisor_control', actor='supervisor'
+  - Details stored as JSON in `details_json` column
+
 #### Supervisor and Watcher Logging with Hourly Rotation
 - **Fixed supervisor.log to write to NAS with hourly rotation and date-based organization**
   - Issue: Supervisor was writing logs to local `C:\cornerstone_archive\05_LOGS\supervisor.log` instead of NAS

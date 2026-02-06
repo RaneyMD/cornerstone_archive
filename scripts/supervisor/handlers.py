@@ -59,20 +59,17 @@ def pause_watcher(
             return {'success': False, 'error': 'Failed to create pause flag'}
 
         # Log to audit
-        audit_details = f"Watcher paused"
-        if label:
-            audit_details += f" (label: {label})"
-
         sql = """
-            INSERT INTO audit_log_t (action, username, ip_address, details, timestamp)
+            INSERT INTO audit_log_t (actor, action, target_type, target_id, details_json)
             VALUES (%s, %s, %s, %s, %s)
         """
+        details = json.dumps({'message': 'Watcher paused', 'label': label})
         db.execute(sql, (
-            'PAUSE_WATCHER',
             'supervisor',
-            'internal',
-            audit_details,
-            datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+            'PAUSE_WATCHER',
+            'supervisor_control',
+            worker_id,
+            details,
         ))
 
         logger.info(f"Watcher {worker_id} paused. {audit_details}")
@@ -122,20 +119,17 @@ def resume_watcher(
             return {'success': False, 'error': 'Failed to start watcher'}
 
         # Log to audit
-        audit_details = f"Watcher resumed"
-        if label:
-            audit_details += f" (label: {label})"
-
         sql = """
-            INSERT INTO audit_log_t (action, username, ip_address, details, timestamp)
+            INSERT INTO audit_log_t (actor, action, target_type, target_id, details_json)
             VALUES (%s, %s, %s, %s, %s)
         """
+        details = json.dumps({'message': 'Watcher resumed', 'label': label})
         db.execute(sql, (
-            'RESUME_WATCHER',
             'supervisor',
-            'internal',
-            audit_details,
-            datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+            'RESUME_WATCHER',
+            'supervisor_control',
+            worker_id,
+            details,
         ))
 
         logger.info(f"Watcher {worker_id} resumed. {audit_details}")
@@ -216,22 +210,21 @@ def update_code(
             logger.warning("Failed to start watcher after code update")
 
         # Log to audit
-        audit_details = (
-            f"Code updated: {before_commit} → {after_commit}"
-        )
-        if label:
-            audit_details += f" (label: {label})"
-
         sql = """
-            INSERT INTO audit_log_t (action, username, ip_address, details, timestamp)
+            INSERT INTO audit_log_t (actor, action, target_type, target_id, details_json)
             VALUES (%s, %s, %s, %s, %s)
         """
+        details = json.dumps({
+            'before_commit': before_commit,
+            'after_commit': after_commit,
+            'label': label,
+        })
         db.execute(sql, (
-            'UPDATE_CODE',
             'supervisor',
-            'internal',
-            audit_details,
-            datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+            'UPDATE_CODE',
+            'supervisor_control',
+            worker_id,
+            details,
         ))
 
         logger.info(f"Code updated. {audit_details}")
@@ -344,22 +337,21 @@ def update_code_deps(
             logger.warning("Failed to start watcher after code/deps update")
 
         # Log to audit
-        audit_details = (
-            f"Code + deps updated: {before_commit} → {after_commit}"
-        )
-        if label:
-            audit_details += f" (label: {label})"
-
         sql = """
-            INSERT INTO audit_log_t (action, username, ip_address, details, timestamp)
+            INSERT INTO audit_log_t (actor, action, target_type, target_id, details_json)
             VALUES (%s, %s, %s, %s, %s)
         """
+        details = json.dumps({
+            'before_commit': before_commit,
+            'after_commit': after_commit,
+            'label': label,
+        })
         db.execute(sql, (
-            'UPDATE_CODE_DEPS',
             'supervisor',
-            'internal',
-            audit_details,
-            datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+            'UPDATE_CODE_DEPS',
+            'supervisor_control',
+            worker_id,
+            details,
         ))
 
         logger.info(f"Code + deps updated. {audit_details}")
@@ -426,22 +418,21 @@ def restart_watcher(
             return {'success': False, 'error': 'Failed to start watcher'}
 
         # Log to audit
-        audit_details = f"Watcher restarted"
-        if pause_flag_set:
-            audit_details += " (paused)"
-        if label:
-            audit_details += f" (label: {label})"
-
         sql = """
-            INSERT INTO audit_log_t (action, username, ip_address, details, timestamp)
+            INSERT INTO audit_log_t (actor, action, target_type, target_id, details_json)
             VALUES (%s, %s, %s, %s, %s)
         """
+        details = json.dumps({
+            'message': 'Watcher restarted',
+            'paused': pause_flag_set,
+            'label': label,
+        })
         db.execute(sql, (
-            'RESTART_WATCHER',
             'supervisor',
-            'internal',
-            audit_details,
-            datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+            'RESTART_WATCHER',
+            'supervisor_control',
+            worker_id,
+            details,
         ))
 
         logger.info(f"Watcher {worker_id} restarted. {audit_details}")
@@ -558,15 +549,15 @@ def rollback_code(
             audit_details['label'] = label
 
         sql = """
-            INSERT INTO audit_log_t (action, username, ip_address, details, timestamp)
+            INSERT INTO audit_log_t (actor, action, target_type, target_id, details_json)
             VALUES (%s, %s, %s, %s, %s)
         """
         db.execute(sql, (
-            'ROLLBACK_CODE',
             'supervisor',
-            'internal',
+            'ROLLBACK_CODE',
+            'supervisor_control',
+            worker_id,
             json.dumps(audit_details),
-            datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
         ))
 
         logger.info(f"Rollback complete. {len(reverted_commits)} commits reverted.")
