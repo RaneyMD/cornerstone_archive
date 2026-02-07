@@ -38,6 +38,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+#### Web Console Dashboard Layout
+- **Condensed supervisor and watcher status monitors to single row**
+  - Changed from separate full-width stacked sections to responsive two-column layout
+  - Uses Bootstrap grid: `col-lg-6` for 50/50 split on desktop (≥992px)
+  - Stacks vertically on tablet/mobile for responsive behavior
+  - Reduces vertical scrolling and better utilizes horizontal screen space
+  - Added CSS styling for compact monitor cards (reduced padding, optimized gaps)
+  - All status information and controls preserved, no functionality changes
+  - Modified `dashboard.php` lines 53-75 to wrap supervisor and watcher sections in `row` container
+  - Added compact styling rules to `style.css` for card-body, info grids, and container sizing
+
 #### Enhanced Job Tracking with Complete Metadata
 - **Embedded job_id in control flags**
   - Console now includes job_id when creating control flags for supervisor

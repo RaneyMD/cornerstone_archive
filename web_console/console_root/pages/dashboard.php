@@ -50,25 +50,28 @@
             </div>
         </div>
 
-        <!-- Supervisor Status Cards Section -->
-        <div class="mb-4">
-            <h4 class="mb-3">Supervisor Status</h4>
-            <div id="supervisors-container">
-                <div class="text-center">
-                    <div class="spinner-border" role="status">
-                        <span class="visually-hidden">Loading...</span>
+        <!-- Supervisor and Watcher Status - Side by Side -->
+        <div class="row mb-4">
+            <!-- Supervisor Status - Left Column -->
+            <div class="col-lg-6 mb-3 mb-lg-0">
+                <h4 class="mb-3">Supervisor Status</h4>
+                <div id="supervisors-container">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Watcher Status Cards Section -->
-        <div class="mb-4">
-            <h4 class="mb-3">Watcher Status</h4>
-            <div id="watchers-container">
-                <div class="text-center">
-                    <div class="spinner-border" role="status">
-                        <span class="visually-hidden">Loading...</span>
+            <!-- Watcher Status - Right Column -->
+            <div class="col-lg-6">
+                <h4 class="mb-3">Watcher Status</h4>
+                <div id="watchers-container">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
                     </div>
                 </div>
             </div>

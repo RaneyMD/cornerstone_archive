@@ -351,3 +351,26 @@ body {
     color: #1f2937;
     line-height: 1.5;
 }
+
+/* Compact monitor cards for side-by-side layout */
+.supervisor-card .card-body,
+.watcher-card .card-body {
+    padding: 1rem;
+}
+
+.supervisor-info,
+.watcher-info {
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.supervisor-card,
+.watcher-card {
+    margin-bottom: 1rem;
+}
+
+/* Ensure cards work well in columns */
+#supervisors-container,
+#watchers-container {
+    min-height: 200px;
+}
