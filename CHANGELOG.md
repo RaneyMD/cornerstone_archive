@@ -10,7 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Diagnostics Viewer System
-- **Diagnostics reports now stored in console database** (diagnostics_t table)
+- **Database migration applied** (006_create_diagnostics_table.sql)
+  - `diagnostics_t` table created with all columns and indices
+  - Stores diagnostic reports from supervisor with key metrics
+  - Migration record inserted in database_migrations_t
+  - Status: Applied successfully via apply_migration.py
+
+- **Diagnostics reports stored in console database** (diagnostics_t table)
   - Table stores: diagnostic_id, task_id, worker_id, label, report_json
   - Extracts key metrics: watcher status, database connectivity, disk usage
   - Enables historical tracking and comparative analysis
