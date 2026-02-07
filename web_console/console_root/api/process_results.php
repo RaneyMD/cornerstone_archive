@@ -39,7 +39,14 @@ function process_pending_results($inbox_path, $db) {
             continue;
         }
 
-        $result = process_result_file($filepath, $db);
+        // Check if this is a diagnostic result file
+        if (strpos($filename, 'supervisor_diagnostics_') === 0) {
+            $result = process_diagnostic_result_file($filepath, $db);
+        } else {
+            // Standard task result file
+            $result = process_result_file($filepath, $db);
+        }
+
         if ($result) {
             $results[] = $result;
             // Clean up processed file
@@ -126,6 +133,105 @@ function process_result_file($filepath, $db) {
         'success' => $success,
         'error' => $error,
     ];
+}
+
+/**
+ * Process diagnostic result file from supervisor
+ * Filename format: supervisor_diagnostics_{worker_id}_{task_id}.json
+ * Extracts metrics and inserts into diagnostics_t table
+ */
+function process_diagnostic_result_file($filepath, $db) {
+    $content = file_get_contents($filepath);
+    if (!$content) {
+        return null;
+    }
+
+    $data = json_decode($content, true);
+    if (!$data) {
+        return null;
+    }
+
+    // Extract identifiers from diagnostic report
+    $task_id = $data['task_id'] ?? null;
+    $worker_id = $data['worker_id'] ?? null;
+    $label = $data['label'] ?? null;
+    $report = $data; // Full report is the data
+
+    if (!$task_id || !$worker_id) {
+        error_log("Diagnostic result missing task_id or worker_id: " . basename($filepath));
+        return null;
+    }
+
+    try {
+        // Find job by task_id to mark it as completed
+        $job_result = $db->fetchAll("SELECT job_id FROM jobs_t WHERE task_id = ?", [$task_id]);
+        $job_id = !empty($job_result) ? $job_result[0]['job_id'] : null;
+
+        // Extract metrics from report
+        $watcher_running = isset($data['watcher']['running']) ? (int)$data['watcher']['running'] : 0;
+        $watcher_healthy = isset($data['watcher']['healthy']) ? (int)$data['watcher']['healthy'] : 0;
+        $database_connected = isset($data['database']['connected']) ? (int)$data['database']['connected'] : 0;
+        $disk_percent_free = isset($data['disk']['percent_free']) ? (float)$data['disk']['percent_free'] : 0;
+
+        // Insert into diagnostics_t
+        $sql = "INSERT INTO diagnostics_t
+                (task_id, worker_id, label, report_json, watcher_running, watcher_healthy, database_connected, disk_percent_free, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+        $db->execute($sql, [
+            $task_id,
+            $worker_id,
+            $label,
+            json_encode($report),
+            $watcher_running,
+            $watcher_healthy,
+            $database_connected,
+            $disk_percent_free
+        ]);
+
+        // If we found a corresponding job, mark it as completed
+        if ($job_id) {
+            $sql = "UPDATE jobs_t SET state = ?, started_at = COALESCE(started_at, NOW()), finished_at = NOW(), attempts = attempts + 1 WHERE job_id = ?";
+            $db->execute($sql, ['succeeded', $job_id]);
+
+            // Record completion in audit log
+            $sql = "INSERT INTO audit_log_t (actor, action, target_type, target_id, details_json)
+                    VALUES (?, ?, ?, ?, ?)";
+            $audit_details = [
+                'task_id' => $task_id,
+                'job_id' => $job_id,
+                'handler' => 'diagnostics',
+                'worker_id' => $worker_id,
+                'label' => $label,
+                'result_file' => basename($filepath),
+                'metrics' => [
+                    'watcher_running' => (bool)$watcher_running,
+                    'watcher_healthy' => (bool)$watcher_healthy,
+                    'database_connected' => (bool)$database_connected,
+                    'disk_percent_free' => $disk_percent_free,
+                ]
+            ];
+            $db->execute($sql, [
+                'result_processor',
+                'DIAGNOSTIC_COMPLETED',
+                'supervisor_control',
+                (string)$job_id,
+                json_encode($audit_details)
+            ]);
+        }
+
+        return [
+            'task_id' => $task_id,
+            'job_id' => $job_id,
+            'handler' => 'diagnostics',
+            'worker_id' => $worker_id,
+            'status' => 'completed',
+            'message' => 'Diagnostic report processed and stored',
+        ];
+
+    } catch (Exception $e) {
+        error_log("Error processing diagnostic result: " . $e->getMessage());
+        return null;
+    }
 }
 
 try {

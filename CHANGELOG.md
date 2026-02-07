@@ -193,6 +193,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Watcher is still attempted to be restarted even on pip failure
   - Ensures console accurately tracks failed dependency updates
 
+#### Diagnostics Result Processing Pipeline
+- **Supervisor diagnostics handler now writes to Worker_Outbox**
+  - Modified: `scripts/supervisor/handlers.py` diagnostics() function
+  - Changed from writing to NAS (05_LOGS/diagnostics/) to Worker_Outbox
+  - File naming: `supervisor_diagnostics_{worker_id}_{task_id}.json`
+  - Atomic file writing using temp-then-rename pattern
+  - Cloud Sync monitors Worker_Outbox and syncs diagnostic results to console_inbox
+  - Enables centralized diagnostic report processing and storage
+
+- **Console processes diagnostic result files automatically**
+  - Updated: `/api/process_results.php` to handle diagnostic result files
+  - Detects diagnostic files by naming pattern: `supervisor_diagnostics_*.json`
+  - Extracts key metrics: watcher_running, watcher_healthy, database_connected, disk_percent_free
+  - Inserts full diagnostic report into diagnostics_t table
+  - Marks corresponding job in jobs_t as 'succeeded'
+  - Records DIAGNOSTIC_COMPLETED audit entry with metrics summary
+  - Enables dashboard to display latest diagnostic reports without NAS access
+
 ### Fixed
 
 #### Control Panel Auto-Label Enhancement

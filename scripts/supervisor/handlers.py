@@ -4,6 +4,7 @@ import json
 import logging
 import shutil
 import subprocess
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -601,18 +602,20 @@ def diagnostics(
     - Pending tasks
     - Recent audit logs
 
-    Writes to: 05_LOGS/diagnostics/diagnostics_{worker_id}_{timestamp}.json
+    Writes to: Worker_Outbox/supervisor_diagnostics_{worker_id}_{task_id}.json
+    (Result file synced via Cloud Sync to console_inbox for processing)
 
     Args:
         nas: NasManager instance
         db: Database instance
         worker_id: Watcher identifier
-        task: Task dict with optional 'label' field
+        task: Task dict with 'task_id' and optional 'label' field
 
     Returns:
         Result dict with success, report_path
     """
     label = task.get('label')
+    task_id = task.get('task_id', 'unknown')
     is_valid, error = validate_label(label)
     if not is_valid:
         return {'success': False, 'error': error}
@@ -627,8 +630,8 @@ def diagnostics(
 
         state_path = nas.get_state_path()
         logs_path = nas.get_logs_path()
-        diag_dir = logs_path / 'diagnostics'
-        diag_dir.mkdir(parents=True, exist_ok=True)
+        outbox = nas.get_worker_outbox_path()
+        outbox.mkdir(parents=True, exist_ok=True)
 
         # Collect diagnostics
         timestamp = datetime.now(timezone.utc).isoformat()
@@ -714,15 +717,25 @@ def diagnostics(
             'recent_audits': recent_audits,
         }
 
-        # Write report
-        report_file = (
-            diag_dir
-            / f'diagnostics_{worker_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
-        )
-        with open(report_file, 'w', encoding='utf-8') as f:
-            json.dump(report, f, indent=2, default=str)
+        # Write report to Worker_Outbox for Cloud Sync
+        # Filename format matches result file pattern: supervisor_diagnostics_{worker_id}_{task_id}.json
+        report_file = outbox / f'supervisor_diagnostics_{worker_id}_{task_id}.json'
 
-        logger.info(f"Diagnostics report written to {report_file}")
+        # Use atomic write (write to temp, then rename) to ensure complete file
+        with tempfile.NamedTemporaryFile(
+            mode='w',
+            suffix='.json',
+            dir=outbox,
+            delete=False,
+            encoding='utf-8'
+        ) as tmp:
+            json.dump(report, tmp, indent=2, default=str)
+            tmp_path = tmp.name
+
+        # Atomic rename
+        shutil.move(tmp_path, report_file)
+
+        logger.info(f"Diagnostics report written to Worker_Outbox: {report_file.name}")
         return {
             'success': True,
             'report_path': str(report_file),
