@@ -162,6 +162,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Control Panel Auto-Label Enhancement
+- **Auto-generate label for control flags if left blank**
+  - Extracts action name (e.g., 'pause_watcher' → 'Pause Watcher')
+  - Improves task queue readability - shows specific action instead of generic "supervisor_control"
+  - Example: pause_watcher becomes "Pause Watcher", update_code becomes "Update Code"
+  - User can still override with custom label if needed
+
 #### Dashboard Job Queue Display and Rendering
 - **Job tables not populating on dashboard**
   - Missing AJAX calls to load queued and recent jobs

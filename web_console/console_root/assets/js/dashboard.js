@@ -603,6 +603,16 @@ function viewJobDetails(jobId) {
 function createSupervisorFlag(action, worker_id, label, commits, promptId, $btn) {
     disableButton($btn);
 
+    // Auto-fill label with action name if blank
+    if (!label || label.trim() === '') {
+        // Convert action like 'pause_watcher' to 'Pause Watcher'
+        const actionLabel = action
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        label = actionLabel;
+    }
+
     // Build params based on action
     const params = {};
     if (action === 'rollback_code') {
