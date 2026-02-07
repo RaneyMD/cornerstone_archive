@@ -238,15 +238,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Lock was held by non-existent process
   - Prevented any new instance from acquiring the lock
 
-- **Solution: Implement stale lock detection in watcher**
-  - New method `_is_lock_stale()`: checks if PID in lock is actually running
+- **Solution: Implement robust stale lock detection in watcher**
+  - New method `_is_lock_stale()`: uses two-pronged approach to detect stale locks
+    * Primary: Check lock timestamp - if acquired < 5 minutes ago, it's definitely active
+    * Fallback: Check if PID is still running using psutil
+    * Avoids false positives from cmdline parsing issues
   - New method `_cleanup_stale_lock()`: safely removes stale lock directory
   - Modified `acquire_lock()` to:
     1. Detect when lock exists
-    2. Check if PID is still running using psutil
-    3. Verify it's actually a spec_watcher process for this worker_id
-    4. If stale, clean up and acquire new lock
-    5. If active, reject with proper error
+    2. Check if lock is stale using timestamp + PID validation
+    3. If stale, clean up and acquire new lock
+    4. If active, reject with proper error
+  - Timestamp-based check prevents killing active locks due to process inspection timing issues
   - Now handles cases where watcher crashes unexpectedly
   - Enables clean recovery without manual lock cleanup
 

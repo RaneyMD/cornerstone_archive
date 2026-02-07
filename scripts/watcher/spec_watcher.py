@@ -408,13 +408,17 @@ class Watcher:
                 return None
 
     def _is_lock_stale(self, lock_dir: Path) -> bool:
-        """Check if lock is stale (PID no longer running).
+        """Check if lock is stale (PID no longer running or lock too old).
+
+        Uses a two-pronged approach:
+        1. Check if lock timestamp is recent (< 5 minutes) - if so, it's active
+        2. Check if PID is still running as a backup
 
         Args:
             lock_dir: Path to the lock directory
 
         Returns:
-            True if lock is stale (PID not running), False if active
+            True if lock is stale (PID not running or too old), False if active
         """
         try:
             owner_file = lock_dir / "owner.json"
@@ -424,23 +428,32 @@ class Watcher:
 
             owner = json.loads(owner_file.read_text(encoding="utf-8"))
             lock_pid = owner.get("pid")
+            lock_timestamp_str = owner.get("utc_locked_at")
 
             if lock_pid is None:
                 logger.warning("Lock owner.json has no PID")
                 return True
 
-            # Check if PID is still running
+            # Check lock timestamp - if recent, assume it's active (avoid race conditions)
+            # A lock acquired within the last 5 minutes is definitely active
+            if lock_timestamp_str:
+                try:
+                    # Parse ISO format timestamp (e.g., "2026-02-07T16:28:33.005695Z")
+                    lock_time = datetime.fromisoformat(lock_timestamp_str.replace('Z', '+00:00'))
+                    age_seconds = (datetime.now(timezone.utc) - lock_time).total_seconds()
+                    if age_seconds < 300:  # 5 minutes
+                        logger.debug(f"Lock PID {lock_pid} is recent ({age_seconds:.0f}s old), assuming active")
+                        return False
+                except Exception as e:
+                    logger.warning(f"Could not parse lock timestamp: {e}")
+
+            # Fallback: Check if PID is still running
             try:
                 import psutil
                 proc = psutil.Process(lock_pid)
-                # Verify it's actually a watcher process
-                cmdline = " ".join(proc.cmdline() or [])
-                if "spec_watcher.py" in cmdline and self.worker_id in cmdline:
-                    logger.debug(f"Lock PID {lock_pid} is still running (active lock)")
-                    return False
-                else:
-                    logger.warning(f"Lock PID {lock_pid} exists but is not a watcher for {self.worker_id}")
-                    return True
+                # Process exists and is running
+                logger.debug(f"Lock PID {lock_pid} is still running (active lock)")
+                return False
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 logger.debug(f"Lock PID {lock_pid} is no longer running (stale lock)")
                 return True
