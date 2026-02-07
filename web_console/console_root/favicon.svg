@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Heritage green color scheme -->
+  <defs>
+    <style>
+      .cornerstone-main { fill: #2d5016; }
+      .cornerstone-highlight { fill: #4a7c2c; }
+      .cornerstone-shadow { fill: #1a3309; }
+      .cornerstone-text { fill: #e8e5d8; font-family: serif; font-weight: bold; font-size: 10px; }
+    </style>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="15" class="cornerstone-main"/>
+  
+  <!-- Cornerstone block shape -->
+  <path d="M 8 20 L 8 12 L 12 10 L 24 10 L 24 18 L 20 20 Z" class="cornerstone-highlight"/>
+  <path d="M 8 20 L 12 22 L 24 22 L 24 18 L 20 20 Z" class="cornerstone-shadow"/>
+  <path d="M 24 10 L 24 18 L 20 20 L 12 20 L 12 10 Z" class="cornerstone-main"/>
+  
+  <!-- CSA text on cornerstone -->
+  <text x="16" y="17" text-anchor="middle" class="cornerstone-text">CSA</text>
+</svg>
