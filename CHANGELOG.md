@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Prompt Management System for Task Flags
+- **Database migration applied** (005_create_prompts_table.sql)
+  - `prompts_t` table created with all columns and indices
+  - Migration record inserted in database_migrations_t
+  - Status: Applied successfully via apply_migration.py
+
 - **Console prompt upload and management** (`pages/prompts.php`)
   - Dedicated prompts management page with upload form and table listing
   - Upload validation: file type (.md, .txt), size (max 100KB), filename sanitization
