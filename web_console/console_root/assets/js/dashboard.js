@@ -68,13 +68,14 @@ $(document).ready(function() {
  * Refresh entire dashboard
  */
 function refreshDashboard() {
-    refreshSupervisorStatus();
-    refreshWatcherStatus();
-    refreshTaskCounts();
-    refreshQueuedJobs();
-    refreshRunningJobs();
-    refreshRecentResults();
-    processResults();  // Process any pending result files from console_inbox
+    // Call each refresh function in its own setTimeout to prevent one error from blocking others
+    try { refreshSupervisorStatus(); } catch (e) { console.error('refreshSupervisorStatus error:', e); }
+    try { refreshWatcherStatus(); } catch (e) { console.error('refreshWatcherStatus error:', e); }
+    try { refreshTaskCounts(); } catch (e) { console.error('refreshTaskCounts error:', e); }
+    try { refreshQueuedJobs(); } catch (e) { console.error('refreshQueuedJobs error:', e); }
+    try { refreshRunningJobs(); } catch (e) { console.error('refreshRunningJobs error:', e); }
+    try { refreshRecentResults(); } catch (e) { console.error('refreshRecentResults error:', e); }
+    try { processResults(); } catch (e) { console.error('processResults error:', e); }
 }
 
 /**
@@ -415,12 +416,16 @@ function refreshQueuedJobs() {
         dataType: 'json',
         timeout: 10000,
         success: function(data) {
+            console.log('Queued jobs response:', data);
             if (data.success) {
+                console.log(`Found ${data.jobs ? data.jobs.length : 0} queued jobs`);
                 renderQueuedJobsTable(data.jobs);
+            } else {
+                console.warn('Queued jobs API error:', data.error);
             }
         },
-        error: function() {
-            console.error('Failed to load queued jobs');
+        error: function(xhr, status, error) {
+            console.error('Failed to load queued jobs:', status, error, xhr.responseText);
         }
     });
 }
@@ -511,14 +516,18 @@ function refreshRecentResults() {
         dataType: 'json',
         timeout: 10000,
         success: function(data) {
+            console.log('Recent results response:', data);
             if (data.success) {
                 // Filter for completed jobs (succeeded or failed)
                 const completed = data.jobs.filter(j => j.state === 'succeeded' || j.state === 'failed');
+                console.log(`Found ${completed.length} completed jobs`);
                 renderRecentResultsTable(completed);
+            } else {
+                console.warn('Recent results API error:', data.error);
             }
         },
-        error: function() {
-            console.error('Failed to load recent results');
+        error: function(xhr, status, error) {
+            console.error('Failed to load recent results:', status, error, xhr.responseText);
         }
     });
 }
