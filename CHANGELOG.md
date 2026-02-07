@@ -162,6 +162,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Dashboard Job Queue Display and Rendering
+- **Job tables not populating on dashboard**
+  - Missing AJAX calls to load queued and recent jobs
+  - Added refreshQueuedJobs(), refreshRunningJobs(), refreshRecentResults() functions
+  - Jobs now display in "Task Queue (Queued)", "Running Jobs", and "Recent Results" tables
+  - Auto-refresh every 5 seconds with dashboard refresh cycle
+
+- **escapeHtml() function throwing TypeError**
+  - Issue: Function received numeric values (job IDs) instead of strings
+  - Solution: Convert all inputs to strings, handle null/undefined gracefully
+  - Allows safe rendering of all job fields including numeric IDs
+
+- **tasks.php endpoint returning 500 errors**
+  - Issue: Endpoint queried non-existent tasks_t table
+  - Solution: Updated to query jobs_t table with correct column mapping
+  - Now returns pending jobs count for dashboard display
+
+- **One error blocking refresh cycle**
+  - Added try-catch wrapping around all refresh functions
+  - Prevents one error from blocking subsequent refreshes
+  - Added console logging for diagnostics
+
 #### Console Result Processing Not Triggered (Critical)
 - **Issue:** Supervisor result files accumulated in console_inbox but were never processed
   - Result files written to console_inbox by Synology Cloud Sync from Worker_Outbox

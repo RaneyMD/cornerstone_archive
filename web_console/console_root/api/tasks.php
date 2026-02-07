@@ -53,16 +53,17 @@ try {
     ];
 
     if ($type === 'pending') {
-        // Get pending tasks
+        // Get pending jobs
         $sql = "SELECT
-                    task_id,
-                    watcher_id,
-                    handler,
+                    job_id,
+                    job_type,
+                    label,
+                    state,
                     created_at,
-                    priority
-                FROM tasks_t
-                WHERE status = 'pending'
-                ORDER BY priority DESC, created_at ASC
+                    attempts
+                FROM jobs_t
+                WHERE state = 'queued'
+                ORDER BY created_at ASC
                 LIMIT ?";
 
         $tasks = $db->fetchAll($sql, [$limit]);
