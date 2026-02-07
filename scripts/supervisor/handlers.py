@@ -645,7 +645,7 @@ def diagnostics(
         # Database connectivity
         db_status = {'connected': False, 'error': None}
         try:
-            result = db.fetchOne('SELECT NOW() as db_time, DATABASE() as db_name')
+            result = db.get_one('SELECT NOW() as db_time, DATABASE() as db_name')
             db_status['connected'] = result is not None
             if result:
                 db_status['db_time'] = result.get('db_time')
@@ -686,7 +686,7 @@ def diagnostics(
         # Recent audit logs
         recent_audits = []
         try:
-            audits = db.fetchAll(
+            audits = db.query(
                 'SELECT * FROM audit_log_t ORDER BY timestamp DESC LIMIT 10'
             )
             recent_audits = [
@@ -703,6 +703,7 @@ def diagnostics(
         # Build report
         report = {
             'timestamp': timestamp,
+            'task_id': task_id,
             'worker_id': worker_id,
             'label': label,
             'watcher': {

@@ -213,6 +213,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Supervisor Diagnostics Handler Database Errors
+- **Database method calls using wrong method names**
+  - Issue: Supervisor code called `db.fetchOne()` and `db.fetchAll()` which don't exist
+  - Supervisor's Database class (spec_db.py) uses different method names: `get_one()` and `query()`
+  - Console's Database class uses `fetchOne()` and `fetchAll()`
+  - Solution: Updated handler to use correct method names: `get_one()` and `query()`
+  - Database connectivity check in diagnostic report now succeeds instead of erroring
+
+- **Task ID missing from diagnostic report JSON**
+  - Issue: Diagnostic report didn't include task_id field, only in filename
+  - Console process_results.php couldn't correlate report with task
+  - Solution: Added `'task_id': task_id` to the report dict in supervisor handler
+  - Diagnostic results now properly linked to job records in database
+
 #### Control Panel Auto-Label Enhancement
 - **Auto-generate label for control flags if left blank**
   - Extracts action name (e.g., 'pause_watcher' → 'Pause Watcher')
