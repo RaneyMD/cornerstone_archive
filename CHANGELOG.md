@@ -226,6 +226,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Watcher Stale Lock Detection (Critical)
+- **Issue: Watcher stuck in restart loop due to stale locks**
+  - When watcher process 6028 stopped unexpectedly, lock file remained
+  - Every new watcher instance found existing lock and exited immediately
+  - Supervisor saw exit and reported `running=False`, then restarted
+  - Created infinite restart cycle with different PIDs every few minutes
+  - Dashboard showed stale PID 6028 with current timestamp
+
+- **Root cause:** `acquire_lock()` didn't check if PID in lock was still running
+  - Lock was held by non-existent process
+  - Prevented any new instance from acquiring the lock
+
+- **Solution: Implement stale lock detection in watcher**
+  - New method `_is_lock_stale()`: checks if PID in lock is actually running
+  - New method `_cleanup_stale_lock()`: safely removes stale lock directory
+  - Modified `acquire_lock()` to:
+    1. Detect when lock exists
+    2. Check if PID is still running using psutil
+    3. Verify it's actually a spec_watcher process for this worker_id
+    4. If stale, clean up and acquire new lock
+    5. If active, reject with proper error
+  - Now handles cases where watcher crashes unexpectedly
+  - Enables clean recovery without manual lock cleanup
+
 #### Supervisor Diagnostics Handler Database Errors
 - **Database method calls using wrong method names**
   - Issue: Supervisor code called `db.fetchOne()` and `db.fetchAll()` which don't exist

@@ -372,6 +372,9 @@ class Watcher:
         mkdir() without exist_ok is atomic on all target filesystems —
         fails with FileExistsError if another instance holds it.
 
+        Implements stale lock detection: if the PID in the lock is no longer
+        running, the lock is considered stale and is cleaned up.
+
         Returns:
             Path to lock directory if acquired, None if already locked.
         """
@@ -386,8 +389,79 @@ class Watcher:
             logger.info(f"Lock acquired: {lock_dir}")
             return lock_dir
         except FileExistsError:
-            logger.warning(f"Lock already held: {lock_dir}")
-            return None
+            # Lock directory exists - check if it's stale
+            if self._is_lock_stale(lock_dir):
+                logger.warning(f"Stale lock detected: {lock_dir} (PID no longer running)")
+                try:
+                    self._cleanup_stale_lock(lock_dir)
+                    # Try acquiring the lock again after cleanup
+                    lock_dir.mkdir()
+                    self.write_lock_owner(lock_dir)
+                    self.lock_dir = lock_dir
+                    logger.info(f"Lock acquired after cleanup: {lock_dir}")
+                    return lock_dir
+                except Exception as e:
+                    logger.error(f"Failed to cleanup stale lock: {e}")
+                    return None
+            else:
+                logger.warning(f"Lock already held by active process: {lock_dir}")
+                return None
+
+    def _is_lock_stale(self, lock_dir: Path) -> bool:
+        """Check if lock is stale (PID no longer running).
+
+        Args:
+            lock_dir: Path to the lock directory
+
+        Returns:
+            True if lock is stale (PID not running), False if active
+        """
+        try:
+            owner_file = lock_dir / "owner.json"
+            if not owner_file.exists():
+                logger.warning(f"Lock owner file missing: {owner_file}")
+                return True
+
+            owner = json.loads(owner_file.read_text(encoding="utf-8"))
+            lock_pid = owner.get("pid")
+
+            if lock_pid is None:
+                logger.warning("Lock owner.json has no PID")
+                return True
+
+            # Check if PID is still running
+            try:
+                import psutil
+                proc = psutil.Process(lock_pid)
+                # Verify it's actually a watcher process
+                cmdline = " ".join(proc.cmdline() or [])
+                if "spec_watcher.py" in cmdline and self.worker_id in cmdline:
+                    logger.debug(f"Lock PID {lock_pid} is still running (active lock)")
+                    return False
+                else:
+                    logger.warning(f"Lock PID {lock_pid} exists but is not a watcher for {self.worker_id}")
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                logger.debug(f"Lock PID {lock_pid} is no longer running (stale lock)")
+                return True
+
+        except Exception as e:
+            logger.error(f"Error checking if lock is stale: {e}")
+            return True
+
+    def _cleanup_stale_lock(self, lock_dir: Path) -> None:
+        """Remove stale lock directory and its contents.
+
+        Args:
+            lock_dir: Path to the lock directory to remove
+        """
+        try:
+            import shutil
+            shutil.rmtree(lock_dir)
+            logger.info(f"Cleaned up stale lock: {lock_dir}")
+        except Exception as e:
+            logger.error(f"Failed to remove stale lock {lock_dir}: {e}")
+            raise
 
     def write_lock_owner(self, lock_dir: Path) -> None:
         """Write owner.json inside the lock directory.
