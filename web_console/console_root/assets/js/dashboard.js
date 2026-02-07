@@ -71,6 +71,7 @@ function refreshDashboard() {
     refreshSupervisorStatus();
     refreshWatcherStatus();
     refreshTaskCounts();
+    processResults();  // Process any pending result files from console_inbox
 }
 
 /**
@@ -375,6 +376,28 @@ function refreshTaskCounts() {
         },
         error: function() {
             console.error('Failed to fetch task count');
+        }
+    });
+}
+
+/**
+ * Process pending result files from console_inbox
+ * Updates job statuses (started_at, finished_at, success/failure)
+ */
+function processResults() {
+    $.ajax({
+        url: '/api/process_results.php',
+        method: 'GET',
+        dataType: 'json',
+        timeout: 10000,
+        success: function(data) {
+            if (data.success && data.processed_count > 0) {
+                console.log(`Processed ${data.processed_count} result file(s)`);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.warn('Failed to process results:', status, error);
+            // Non-critical error - don't disrupt dashboard
         }
     });
 }
