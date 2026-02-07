@@ -102,6 +102,12 @@ function prependAlert(alertHtml) {
  * Escape HTML special characters
  */
 function escapeHtml(text) {
+    // Convert to string if not already (handle numbers, null, etc)
+    if (text === null || text === undefined) {
+        return '';
+    }
+    text = String(text);
+
     const map = {
         '&': '&amp;',
         '<': '&lt;',
