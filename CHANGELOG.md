@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Diagnostics Viewer System
+- **Diagnostics reports now stored in console database** (diagnostics_t table)
+  - Table stores: diagnostic_id, task_id, worker_id, label, report_json
+  - Extracts key metrics: watcher status, database connectivity, disk usage
+  - Enables historical tracking and comparative analysis
+
+- **Diagnostics console page** (`pages/diagnostics.php`)
+  - Dedicated page for browsing supervisor diagnostic reports
+  - Status summary badges (watcher running/healthy, database connected, disk free %)
+  - Modal details view with formatted report sections
+
+- **Diagnostics API endpoints** (2 new endpoints)
+  - `/api/list_diagnostics.php` — List recent diagnostics with status summaries
+  - `/api/get_diagnostic.php` — Retrieve full diagnostic report with parsed JSON
+
+- **Diagnostics details modal displays:**
+  - Watcher status (process ID, heartbeat timestamp, health indicators)
+  - Database connectivity status and errors
+  - NAS path accessibility (state, logs, worker_inbox, worker_outbox)
+  - Disk space metrics (total, used, free, percentage free)
+  - Pending tasks list
+  - Full JSON report for advanced analysis
+
+- **Navigation integration:**
+  - Added "Diagnostics" link to console navbar
+  - Quick access from any console page to diagnostic history
+
 #### Dashboard Job Queue Display
 - **Control flags now appear in Task Queue immediately after creation**
   - Queued jobs (state='queued') display in "Task Queue (Queued)" table

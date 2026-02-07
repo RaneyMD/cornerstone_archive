@@ -29,6 +29,9 @@
                         <a class="nav-link" href="/?page=prompts">Prompts</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="/?page=diagnostics">Diagnostics</a>
+                    </li>
+                    <li class="nav-item">
                         <span class="nav-link">User: <strong><?php echo htmlspecialchars($_SESSION['username'], ENT_QUOTES, 'UTF-8'); ?></strong></span>
                     </li>
                     <li class="nav-item">
