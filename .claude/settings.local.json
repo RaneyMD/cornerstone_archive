@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(python -m pytest:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(PYTHONPATH=\"C:\\\\cornerstone_archive\" python:*)"
     ]
   }
 }

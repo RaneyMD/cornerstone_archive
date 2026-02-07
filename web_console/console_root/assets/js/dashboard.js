@@ -71,6 +71,9 @@ function refreshDashboard() {
     refreshSupervisorStatus();
     refreshWatcherStatus();
     refreshTaskCounts();
+    refreshQueuedJobs();
+    refreshRunningJobs();
+    refreshRecentResults();
     processResults();  // Process any pending result files from console_inbox
 }
 
@@ -398,6 +401,189 @@ function processResults() {
         error: function(xhr, status, error) {
             console.warn('Failed to process results:', status, error);
             // Non-critical error - don't disrupt dashboard
+        }
+    });
+}
+
+/**
+ * Load and display queued jobs
+ */
+function refreshQueuedJobs() {
+    $.ajax({
+        url: '/api/list_jobs.php?state=queued&limit=50',
+        method: 'GET',
+        dataType: 'json',
+        timeout: 10000,
+        success: function(data) {
+            if (data.success) {
+                renderQueuedJobsTable(data.jobs);
+            }
+        },
+        error: function() {
+            console.error('Failed to load queued jobs');
+        }
+    });
+}
+
+/**
+ * Render queued jobs table
+ */
+function renderQueuedJobsTable(jobs) {
+    const $tbody = $('#queued-jobs-body');
+
+    if (!jobs || jobs.length === 0) {
+        $tbody.html('<tr><td colspan="6" class="text-muted text-center">No queued jobs</td></tr>');
+        return;
+    }
+
+    $tbody.empty();
+    jobs.forEach(function(job) {
+        const row = `
+            <tr>
+                <td><strong>${escapeHtml(job.job_id)}</strong></td>
+                <td><span class="badge bg-primary">${escapeHtml(job.job_type)}</span></td>
+                <td>${job.label ? escapeHtml(job.label) : '<em>--</em>'}</td>
+                <td>${formatTimestamp(job.created_at)}</td>
+                <td>${job.attempts}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-info" onclick="viewJobDetails(${job.job_id})">Details</button>
+                </td>
+            </tr>
+        `;
+        $tbody.append(row);
+    });
+}
+
+/**
+ * Load and display running jobs
+ */
+function refreshRunningJobs() {
+    $.ajax({
+        url: '/api/list_jobs.php?state=running&limit=50',
+        method: 'GET',
+        dataType: 'json',
+        timeout: 10000,
+        success: function(data) {
+            if (data.success) {
+                renderRunningJobsTable(data.jobs);
+            }
+        },
+        error: function() {
+            console.error('Failed to load running jobs');
+        }
+    });
+}
+
+/**
+ * Render running jobs table
+ */
+function renderRunningJobsTable(jobs) {
+    const $tbody = $('#running-jobs-body');
+
+    if (!jobs || jobs.length === 0) {
+        $tbody.html('<tr><td colspan="6" class="text-muted text-center">No running jobs</td></tr>');
+        return;
+    }
+
+    $tbody.empty();
+    jobs.forEach(function(job) {
+        const row = `
+            <tr>
+                <td><strong>${escapeHtml(job.job_id)}</strong></td>
+                <td><span class="badge bg-warning">${escapeHtml(job.job_type)}</span></td>
+                <td>${job.label ? escapeHtml(job.label) : '<em>--</em>'}</td>
+                <td><em>--</em></td>
+                <td>${formatTimestamp(job.created_at)}</td>
+                <td><em>--</em></td>
+            </tr>
+        `;
+        $tbody.append(row);
+    });
+}
+
+/**
+ * Load and display recent results
+ */
+function refreshRecentResults() {
+    $.ajax({
+        url: '/api/list_jobs.php?limit=50',
+        method: 'GET',
+        dataType: 'json',
+        timeout: 10000,
+        success: function(data) {
+            if (data.success) {
+                // Filter for completed jobs (succeeded or failed)
+                const completed = data.jobs.filter(j => j.state === 'succeeded' || j.state === 'failed');
+                renderRecentResultsTable(completed);
+            }
+        },
+        error: function() {
+            console.error('Failed to load recent results');
+        }
+    });
+}
+
+/**
+ * Render recent results table
+ */
+function renderRecentResultsTable(jobs) {
+    const $tbody = $('#recent-results-body');
+
+    if (!jobs || jobs.length === 0) {
+        $tbody.html('<tr><td colspan="6" class="text-muted text-center">No completed jobs</td></tr>');
+        return;
+    }
+
+    $tbody.empty();
+    jobs.forEach(function(job) {
+        const stateBadgeClass = job.state === 'succeeded' ? 'bg-success' : 'bg-danger';
+        const row = `
+            <tr>
+                <td><strong>${escapeHtml(job.job_id)}</strong></td>
+                <td>${escapeHtml(job.job_type)}</td>
+                <td>${job.label ? escapeHtml(job.label) : '<em>--</em>'}</td>
+                <td><span class="badge ${stateBadgeClass}">${job.state.toUpperCase()}</span></td>
+                <td>${formatTimestamp(job.created_at)}</td>
+                <td><em>--</em></td>
+            </tr>
+        `;
+        $tbody.append(row);
+    });
+}
+
+/**
+ * View job details modal
+ */
+function viewJobDetails(jobId) {
+    $.ajax({
+        url: '/api/get_job_status.php?job_id=' + jobId,
+        method: 'GET',
+        dataType: 'json',
+        success: function(data) {
+            if (data.success && data.job) {
+                const job = data.job;
+                let detailsHtml = `
+                    <strong>Job ID:</strong> ${escapeHtml(job.job_id)}<br>
+                    <strong>Type:</strong> ${escapeHtml(job.job_type)}<br>
+                    <strong>Label:</strong> ${job.label ? escapeHtml(job.label) : '(none)'}<br>
+                    <strong>State:</strong> <span class="badge ${job.state === 'succeeded' ? 'bg-success' : 'bg-warning'}">${job.state}</span><br>
+                    <strong>Created:</strong> ${formatTimestamp(job.created_at)}<br>
+                    <strong>Started:</strong> ${job.started_at ? formatTimestamp(job.started_at) : '(not started)'}<br>
+                    <strong>Finished:</strong> ${job.finished_at ? formatTimestamp(job.finished_at) : '(not finished)'}<br>
+                    <strong>Attempts:</strong> ${job.attempts}<br>
+                `;
+                if (job.last_error) {
+                    detailsHtml += `<strong>Error:</strong> ${escapeHtml(job.last_error)}<br>`;
+                }
+
+                $('#job-details-basic').html(detailsHtml);
+                new bootstrap.Modal(document.getElementById('jobDetailsModal')).show();
+            } else {
+                showError('Failed to load job details');
+            }
+        },
+        error: function() {
+            showError('Failed to load job details');
         }
     });
 }

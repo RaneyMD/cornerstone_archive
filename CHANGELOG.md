@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Dashboard Job Queue Display
+- **Control flags now appear in Task Queue immediately after creation**
+  - Queued jobs (state='queued') display in "Task Queue (Queued)" table
+  - Running jobs (state='running') display in "Running Jobs" table
+  - Completed jobs (state='succeeded'/'failed') display in "Recent Results" table
+  - Each table refreshes every 5 seconds alongside other dashboard metrics
+
+- **New dashboard functions:**
+  - `refreshQueuedJobs()` - Load and display queued control flags
+  - `refreshRunningJobs()` - Load and display active control operations
+  - `refreshRecentResults()` - Load and display completed operations
+  - `viewJobDetails()` - Modal popup with full job metadata
+
+- **Job details visible in all tables:**
+  - Job ID, Type (supervisor_control, etc), Label, State
+  - Created timestamp, Attempts counter
+  - For completed jobs: finish timestamp and error status
+
 #### Prompt Management System for Task Flags
 - **Database migration applied** (005_create_prompts_table.sql)
   - `prompts_t` table created with all columns and indices
