@@ -56,7 +56,7 @@ class TestPauseWatcherHandler:
 
             assert result['success'] is True
             assert result['label'] == 'test pause'
-            db.insert.assert_called_once()
+            db.execute.assert_called_once()
 
     def test_pause_watcher_invalid_label(self):
         """Invalid label is rejected."""
