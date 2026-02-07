@@ -341,7 +341,16 @@ class Watcher:
             # Execute handler
             result = self.execute_handler(task)
 
-            prompt_result = self.run_prompt_if_configured(task)
+            # Check for prompt_spec in task
+            prompt_spec = task.get("prompt_spec")
+            prompt_result = None
+
+            if prompt_spec:
+                prompt_result = self.run_prompt_from_spec(task, prompt_spec)
+            elif self.prompt_runner:
+                # Fallback to CLI-provided prompt_runner
+                prompt_result = self.run_prompt_if_configured(task)
+
             if prompt_result is not None:
                 result = {**result, "prompt_execution": prompt_result}
 
@@ -553,6 +562,62 @@ class Watcher:
         except Exception as e:
             logger.error(
                 f"[TASK:{task_id}] Unexpected Claude execution error: {e}",
+                exc_info=True,
+            )
+            return {"success": False, "error": str(e)}
+
+    def run_prompt_from_spec(self, task: dict, prompt_spec: dict) -> Optional[dict]:
+        """Run Claude prompt based on prompt_spec from task flag.
+
+        Args:
+            task: Task dictionary
+            prompt_spec: Dictionary with:
+                - prompt_filename: Name of prompt file in Worker_Inbox
+                - model (optional): Model to use (opus, sonnet, haiku)
+                - timeout_seconds (optional): Timeout for execution
+
+        Returns:
+            Prompt execution result dictionary or None on error
+        """
+        task_id = task.get("task_id", "unknown")
+
+        try:
+            # Resolve prompt file path from Worker_Inbox
+            inbox_path = self.nas.get_worker_inbox_path()
+            prompt_file = inbox_path / f"{task_id}_prompt.md"
+
+            if not prompt_file.exists():
+                logger.error(f"[TASK:{task_id}] Prompt file not found: {prompt_file}")
+                return {"success": False, "error": f"Prompt file not found: {prompt_file}"}
+
+            # Create prompt runner
+            model = prompt_spec.get("model")
+            timeout = prompt_spec.get("timeout_seconds", CLAUDE_DEFAULT_TIMEOUT_SECONDS)
+
+            runner = ClaudePromptRunner(
+                prompt_file,
+                model=model,
+                dry_run=False,
+                timeout_seconds=timeout
+            )
+
+            logger.info(
+                f"[TASK:{task_id}] Running prompt from spec "
+                f"(file={prompt_spec.get('prompt_filename')}, model={model or 'default'})"
+            )
+            result = runner.run()
+            logger.info(f"[TASK:{task_id}] Prompt execution completed")
+            return result
+
+        except PromptFileError as e:
+            logger.error(f"[TASK:{task_id}] Prompt file error: {e}")
+            return {"success": False, "error": str(e)}
+        except ClaudeExecutionError as e:
+            logger.error(f"[TASK:{task_id}] Prompt execution failed: {e}")
+            return {"success": False, "error": str(e)}
+        except Exception as e:
+            logger.error(
+                f"[TASK:{task_id}] Unexpected prompt error: {e}",
                 exc_info=True,
             )
             return {"success": False, "error": str(e)}

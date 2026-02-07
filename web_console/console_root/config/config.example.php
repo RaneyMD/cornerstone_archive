@@ -54,6 +54,8 @@ define('NAS_WORKER_OUTBOX', NAS_LOGS . '\\Worker_Outbox');
 define('CONSOLE_OUTBOX', getenv('CONSOLE_OUTBOX') ?: '/home1/raneywor/cornerstone_archive_support/console_outbox');
 // Where console reads supervisor results (Synology Cloud Sync pushes from Worker_Outbox)
 define('CONSOLE_INBOX', getenv('CONSOLE_INBOX') ?: '/home1/raneywor/cornerstone_archive_support/console_inbox');
+// Where console stores Claude Code prompt files
+define('PROMPTS_PATH', getenv('PROMPTS_PATH') ?: '/home1/raneywor/cornerstone_archive_support/prompts');
 
 // ============================================================================
 // SESSION CONFIGURATION

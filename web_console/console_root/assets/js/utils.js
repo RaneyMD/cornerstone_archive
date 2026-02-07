@@ -160,3 +160,23 @@ function enableButton($btn) {
     $btn.prop('disabled', false);
     $btn.html(originalText);
 }
+
+/**
+ * Format bytes to human-readable size
+ */
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+/**
+ * Format ISO timestamp to human-readable date
+ */
+function formatTimestamp(isoString) {
+    if (!isoString) return 'Unknown';
+    const date = new Date(isoString);
+    return date.toLocaleString();
+}

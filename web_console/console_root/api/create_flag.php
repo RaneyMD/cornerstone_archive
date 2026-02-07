@@ -28,6 +28,7 @@ $handler = $input['handler'] ?? '';
 $worker_id = $input['worker_id'] ?? '';
 $label = $input['label'] ?? null;
 $params = $input['params'] ?? [];
+$prompt_spec = $input['prompt_spec'] ?? null;
 
 $allowed_supervisor_handlers = [
     'pause_watcher',
@@ -52,6 +53,17 @@ if (!$label_validation['valid']) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => $label_validation['error']]);
     exit;
+}
+
+// Validate prompt_spec if present
+if ($prompt_spec !== null) {
+    if (!isset($prompt_spec['prompt_id'])) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'prompt_spec missing prompt_id']);
+        exit;
+    }
+
+    // Will validate prompt exists after db connection
 }
 
 if ($flag_type === 'supervisor_control') {
@@ -83,6 +95,32 @@ $task_id = generate_task_id($flag_type === 'job' ? 'job' : 'task');
 try {
     $db = new Database(DB_HOST, DB_USER, DB_PASS, DB_NAME);
     $db->connect();
+
+    // Validate prompt if specified
+    if ($prompt_spec !== null) {
+        $prompt = $db->fetchOne(
+            'SELECT prompt_id, prompt_filename FROM prompts_t WHERE prompt_id = ? AND is_active = 1',
+            [$prompt_spec['prompt_id']]
+        );
+        if (!$prompt) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Prompt not found or inactive']);
+            exit;
+        }
+
+        // Validate model if specified
+        if (isset($prompt_spec['model'])) {
+            $allowed_models = ['opus', 'sonnet', 'haiku'];
+            if (!in_array($prompt_spec['model'], $allowed_models, true)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Invalid model']);
+                exit;
+            }
+        }
+
+        // Add prompt filename to spec for watcher
+        $prompt_spec['prompt_filename'] = $prompt['prompt_filename'];
+    }
 
     $target_ref = $flag_type === 'supervisor_control'
         ? $handler . ':' . $worker_id
@@ -118,6 +156,11 @@ try {
         'params' => $params
     ];
 
+    // Include prompt_spec if present
+    if ($prompt_spec !== null) {
+        $flag_data['prompt_spec'] = $prompt_spec;
+    }
+
     if ($flag_type === 'supervisor_control') {
         $flag_data['worker_id'] = $worker_id;
         $flag_name = "supervisor_{$handler}_{$worker_id}_{$task_id}.flag";
@@ -130,6 +173,17 @@ try {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Failed to write flag file']);
         exit;
+    }
+
+    // Copy prompt file to CONSOLE_OUTBOX if specified
+    if ($prompt_spec !== null) {
+        $prompt_source = rtrim(PROMPTS_PATH, '/') . '/' . $prompt_spec['prompt_filename'];
+        $prompt_dest = rtrim(CONSOLE_OUTBOX, '/') . '/' . $task_id . '_prompt.md';
+
+        if (!copy($prompt_source, $prompt_dest)) {
+            error_log("Warning: Failed to copy prompt file: $prompt_source to $prompt_dest");
+            // Don't fail the flag creation, just log warning
+        }
     }
 
     echo json_encode([

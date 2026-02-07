@@ -4,6 +4,9 @@
  */
 
 $(document).ready(function() {
+    // Load available prompts
+    loadPromptsDropdown();
+
     // Auto-refresh on page load
     refreshDashboard();
 
@@ -23,8 +26,19 @@ $(document).ready(function() {
         const worker_id = $('#control-worker').val();
         const label = $('#control-label').val() || null;
         const commits = $('#control-commits').val() || 1;
+        const promptId = $('#control-prompt').val() || null;
 
-        createSupervisorFlag(action, worker_id, label, commits, $btn);
+        createSupervisorFlag(action, worker_id, label, commits, promptId, $btn);
+    });
+
+    // Show/hide model selector when prompt selected
+    $(document).on('change', '#control-prompt', function() {
+        const promptId = $(this).val();
+        if (promptId) {
+            $('#prompt-model-container').show();
+        } else {
+            $('#prompt-model-container').hide();
+        }
     });
 
     // Watcher control buttons
@@ -368,13 +382,23 @@ function refreshTaskCounts() {
 /**
  * Create a supervisor control flag
  */
-function createSupervisorFlag(action, worker_id, label, commits, $btn) {
+function createSupervisorFlag(action, worker_id, label, commits, promptId, $btn) {
     disableButton($btn);
 
     // Build params based on action
     const params = {};
     if (action === 'rollback_code') {
         params.commits = parseInt(commits);
+    }
+
+    // Build prompt_spec if a prompt is selected
+    let promptSpec = null;
+    if (promptId) {
+        promptSpec = {
+            prompt_id: parseInt(promptId),
+            model: $('#control-prompt-model').val(),
+            timeout_seconds: 300
+        };
     }
 
     const payload = {
@@ -384,6 +408,11 @@ function createSupervisorFlag(action, worker_id, label, commits, $btn) {
         label: label,
         params: params
     };
+
+    // Include prompt_spec if present
+    if (promptSpec) {
+        payload.prompt_spec = promptSpec;
+    }
 
     $.ajax({
         url: '/api/create_flag.php',
@@ -656,4 +685,36 @@ function updateLastRefresh() {
         hour12: true
     });
     $('#last-refresh-time').text(timeStr);
+}
+
+/**
+ * Load available prompts into the control panel dropdown
+ */
+function loadPromptsDropdown() {
+    $.ajax({
+        url: '/api/list_prompts.php',
+        method: 'GET',
+        dataType: 'json',
+        timeout: 10000,
+        success: function(data) {
+            if (data.success && data.prompts && data.prompts.length > 0) {
+                const $select = $('#control-prompt');
+                const currentValue = $select.val();
+
+                $select.empty().append('<option value="">None</option>');
+                data.prompts.forEach(function(prompt) {
+                    const seqNum = String(prompt.sequence_number).padStart(4, '0');
+                    $select.append(`<option value="${prompt.prompt_id}">[${seqNum}] ${escapeHtml(prompt.prompt_name)}</option>`);
+                });
+
+                // Restore previous selection if still available
+                if (currentValue) {
+                    $select.val(currentValue);
+                }
+            }
+        },
+        error: function() {
+            console.warn('Failed to load prompts dropdown');
+        }
+    });
 }

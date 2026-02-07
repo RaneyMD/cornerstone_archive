@@ -26,6 +26,9 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
+                        <a class="nav-link" href="/?page=prompts">Prompts</a>
+                    </li>
+                    <li class="nav-item">
                         <span class="nav-link">User: <strong><?php echo htmlspecialchars($_SESSION['username'], ENT_QUOTES, 'UTF-8'); ?></strong></span>
                     </li>
                     <li class="nav-item">
@@ -105,6 +108,20 @@
                             <div class="col-md-3">
                                 <label class="form-label">Rollback commits</label>
                                 <input type="number" class="form-control" id="control-commits" value="1" min="1">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Claude Prompt (optional)</label>
+                                <select class="form-select" id="control-prompt">
+                                    <option value="">None</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3" id="prompt-model-container" style="display: none;">
+                                <label class="form-label">Model</label>
+                                <select class="form-select" id="control-prompt-model">
+                                    <option value="sonnet">Sonnet (Recommended)</option>
+                                    <option value="opus">Opus</option>
+                                    <option value="haiku">Haiku</option>
+                                </select>
                             </div>
                             <div class="col-md-3 d-flex align-items-end gap-2 flex-wrap">
                                 <button type="button" class="btn btn-outline-secondary" data-action="pause_watcher">Pause</button>

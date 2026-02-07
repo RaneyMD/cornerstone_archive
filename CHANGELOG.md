@@ -9,6 +9,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Prompt Management System for Task Flags
+- **Console prompt upload and management** (`pages/prompts.php`)
+  - Dedicated prompts management page with upload form and table listing
+  - Upload validation: file type (.md, .txt), size (max 100KB), filename sanitization
+  - Auto-incrementing 4-digit sequence numbers for filenames (0001, 0002, etc.)
+  - Preview functionality: view prompt content in modal dialog
+  - Soft-delete: marks prompts inactive without removing files
+
+- **Prompt storage database** (`database/migrations/005_create_prompts_table.sql`)
+  - New table `prompts_t` with fields: prompt_id, sequence_number, prompt_name, prompt_filename, file_size, uploaded_by, uploaded_at, is_active
+  - Indices on: prompt_name, uploaded_at, is_active, sequence_number
+  - Supports audit logging for all prompt operations
+
+- **Prompt API endpoints** (4 new endpoints)
+  - `/api/upload_prompt.php` — Upload prompt files with validation and metadata storage
+  - `/api/list_prompts.php` — List all active prompts ordered by sequence number (newest first)
+  - `/api/get_prompt.php` — Retrieve prompt content and metadata for preview
+  - `/api/delete_prompt.php` — Soft-delete prompts (sets is_active = 0)
+  - All endpoints include authentication checks and audit logging
+
+- **Task flag prompt specification** (enhanced `create_flag.php`)
+  - Support for optional `prompt_spec` in flag creation
+  - Validates prompt exists and is active
+  - Copies prompt file to CONSOLE_OUTBOX with task ID: `{task_id}_prompt.md`
+  - Includes prompt metadata in flag JSON for watcher reference
+  - Extended audit logging with prompt details
+
+- **Dashboard prompt selector** (enhanced `pages/dashboard.php` and `dashboard.js`)
+  - Added prompt dropdown in control panel (optional selection)
+  - Added model selector (Sonnet/Opus/Haiku) that shows when prompt selected
+  - Prompts loaded dynamically from API on page load
+  - Display format: [sequence number] prompt name for easy identification
+  - Prompt spec automatically included in flag creation with 300s timeout
+
+- **Watcher prompt execution** (enhanced `scripts/watcher/spec_watcher.py`)
+  - New method `run_prompt_from_spec()` to execute prompts from task flags
+  - Reads prompt spec from task flag (prompt_filename, model, timeout_seconds)
+  - Locates prompt file in Worker_Inbox (`{task_id}_prompt.md`)
+  - Creates ClaudePromptRunner with specified model and timeout
+  - Executes Claude with allowed tools: Write, Edit, Bash
+  - Includes prompt execution results in task response (field: `prompt_execution`)
+  - Comprehensive error handling and logging
+
+- **Configuration support** (`config/config.example.php`)
+  - New constant: `PROMPTS_PATH` for prompt file storage
+  - Default: `/home1/raneywor/cornerstone_archive_support/prompts`
+  - Configurable via environment variable
+
+- **Frontend utilities** (enhanced `assets/js/prompts.js` and `assets/js/utils.js`)
+  - New JavaScript module `prompts.js` for prompt management page
+  - Load/render/upload/preview/delete functionality
+  - File validation before upload
+  - New utility functions: `formatBytes()`, `formatTimestamp()`
+
 #### Supervisor Result Writing and Console Processing
 - **Supervisor writes control flag results to Worker_Outbox**
   - New function: `write_result_file()` in supervisor/control_flow.py
