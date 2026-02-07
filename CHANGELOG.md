@@ -226,7 +226,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-#### Watcher Stale Lock Detection (Critical)
+#### Watcher Stale Lock Detection and Health Check Improvements (Critical)
+- **Increased lock timeout from 5 minutes to 1 hour**
+  - Previous timeout was too short for normal watcher operation
+  - Watchers should run continuously for hours without being killed
+  - New instances starting after 5+ minutes incorrectly detected locks as stale
+  - Now allows watchers to run stably for up to 1 hour before lock considered stale
+
+- **Added detailed debugging to supervisor's health check**
+  - Modified `check_watcher_process()` to log all Python processes found
+  - Logs the first 3 arguments of each Python process for diagnosis
+  - Now shows when processes exist but don't match watcher criteria
+  - Helps identify why supervisor says `running=False` despite running watchers
+  - Enables root cause analysis of process detection failures
+
 - **Issue: Watcher stuck in restart loop due to stale locks**
   - When watcher process 6028 stopped unexpectedly, lock file remained
   - Every new watcher instance found existing lock and exited immediately

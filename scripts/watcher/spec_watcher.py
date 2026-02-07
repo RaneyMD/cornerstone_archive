@@ -435,13 +435,14 @@ class Watcher:
                 return True
 
             # Check lock timestamp - if recent, assume it's active (avoid race conditions)
-            # A lock acquired within the last 5 minutes is definitely active
+            # A lock acquired within the last 1 hour is definitely active
+            # Watcher instances should run for much longer than this window
             if lock_timestamp_str:
                 try:
                     # Parse ISO format timestamp (e.g., "2026-02-07T16:28:33.005695Z")
                     lock_time = datetime.fromisoformat(lock_timestamp_str.replace('Z', '+00:00'))
                     age_seconds = (datetime.now(timezone.utc) - lock_time).total_seconds()
-                    if age_seconds < 300:  # 5 minutes
+                    if age_seconds < 3600:  # 1 hour
                         logger.debug(f"Lock PID {lock_pid} is recent ({age_seconds:.0f}s old), assuming active")
                         return False
                 except Exception as e:

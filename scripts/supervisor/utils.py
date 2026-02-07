@@ -26,17 +26,38 @@ def check_watcher_process(worker_id: str) -> bool:
         True if watcher process is running, False otherwise
     """
     try:
+        found_python_procs = []
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
+                name = proc.info.get('name', '')
                 cmdline = proc.info['cmdline'] or []
+
+                # Log all Python processes for debugging
+                if 'python' in name.lower():
+                    found_python_procs.append({
+                        'pid': proc.info['pid'],
+                        'name': name,
+                        'cmdline': ' '.join(cmdline[:3])  # First 3 args
+                    })
+
                 # Look for spec_watcher.py with this worker_id in cmdline
                 if (
                     'spec_watcher.py' in ' '.join(cmdline)
                     and worker_id in ' '.join(cmdline)
                 ):
+                    logger.debug(f"Found watcher process: PID {proc.info['pid']}, cmdline: {' '.join(cmdline[:5])}")
                     return True
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
+
+        # Log what we found for debugging
+        if found_python_procs:
+            logger.debug(f"Found {len(found_python_procs)} Python processes, but none matched watcher criteria for {worker_id}:")
+            for p in found_python_procs:
+                logger.debug(f"  PID {p['pid']}: {p['cmdline']}")
+        else:
+            logger.debug(f"No Python processes found when checking for {worker_id}")
+
         return False
     except Exception as e:
         logger.error(f"Error checking watcher process: {e}")
