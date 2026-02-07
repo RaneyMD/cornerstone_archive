@@ -12,6 +12,9 @@
     <title>Dashboard - Cornerstone Archive Console</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" href="/favicon-32x32.png">
+    <link rel="icon" href="/favicon.ico">
 </head>
 <body>
     <!-- Navigation -->

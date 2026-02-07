@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Website Favicon Support
+- **Multiple favicon formats for modern browser compatibility**
+  - `favicon.svg` - SVG favicon for modern browsers (scalable, smallest file size)
+  - `favicon-32x32.png` - PNG fallback for browsers that don't support SVG
+  - `favicon.ico` - Traditional favicon format for maximum compatibility
+  - Favicon links added to all console pages
+
+- **Favicon implementation across all console pages**
+  - Linked in: dashboard.php, diagnostics.php, prompts.php
+  - Also linked in: auth/login.php for login page branding
+  - Properly ordered HTML link tags (SVG first for modern browsers, fallback to PNG, then ICO)
+  - Favicon displays in browser tabs, bookmarks, and address bar
+
 #### Diagnostics Viewer System
 - **Database migration applied** (006_create_diagnostics_table.sql)
   - `diagnostics_t` table created with all columns and indices

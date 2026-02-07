@@ -75,6 +75,9 @@ $show_expired = isset($_GET['expired']) && $_GET['expired'] === '1';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Cornerstone Archive Console</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" href="/favicon-32x32.png">
+    <link rel="icon" href="/favicon.ico">
     <style>
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
