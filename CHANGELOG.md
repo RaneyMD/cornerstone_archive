@@ -144,6 +144,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Console Result Processing Not Triggered (Critical)
+- **Issue:** Supervisor result files accumulated in console_inbox but were never processed
+  - Result files written to console_inbox by Synology Cloud Sync from Worker_Outbox
+  - `/api/process_results.php` endpoint existed but was never called
+  - Jobs_t table never updated with started_at, finished_at, or success/failure status
+  - All control tasks remained in 'queued' state despite completion
+
+- **Impact:** 8 tests performed with zero job status updates recorded
+  - No timestamps recorded (started_at, finished_at)
+  - No success/failure status recorded
+  - No audit trail entries created
+  - Result files accumulating on HostGator
+
+- **Solution:** Added periodic result processing to dashboard refresh cycle
+  - New function: `processResults()` in dashboard.js
+  - Called every 5 seconds as part of refreshDashboard()
+  - Automatically processes pending result files from console_inbox
+  - Updates jobs_t with all metadata (state, timestamps, error, log_path)
+  - Records JOB_COMPLETED audit entries
+  - Cleans up processed files
+
+- **Verification:** Result files now processed on each dashboard refresh
+  - Control jobs now show accurate started_at and finished_at timestamps
+  - Job state correctly transitions to succeeded/failed
+  - Complete audit trail recorded for all control operations
+
 #### Supervisor Handler Audit Logging Schema
 - **Fixed audit_log_t INSERT statements to use correct column names**
   - Issue: Handlers were using non-existent columns: `username`, `ip_address`, `details`, `timestamp`
