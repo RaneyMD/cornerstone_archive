@@ -40,11 +40,20 @@ def check_watcher_process(worker_id: str) -> bool:
                         'cmdline': ' '.join(cmdline[:3])  # First 3 args
                     })
 
-                # Look for spec_watcher.py with this worker_id in cmdline
-                if (
-                    'spec_watcher.py' in ' '.join(cmdline)
-                    and worker_id in ' '.join(cmdline)
-                ):
+                # Look for spec_watcher (file or module syntax) with this worker_id in cmdline
+                cmdline_str = ' '.join(cmdline)
+                # Match either:
+                # - spec_watcher.py (file syntax)
+                # - spec_watcher (module name or script name)
+                # - scripts.watcher.spec_watcher (full module path)
+                has_watcher = (
+                    'spec_watcher.py' in cmdline_str
+                    or 'spec_watcher' in cmdline_str
+                    or 'scripts.watcher' in cmdline_str
+                )
+                has_worker_id = worker_id in cmdline_str
+
+                if has_watcher and has_worker_id:
                     logger.debug(f"Found watcher process: PID {proc.info['pid']}, cmdline: {' '.join(cmdline[:5])}")
                     return True
             except (psutil.NoSuchProcess, psutil.AccessDenied):
